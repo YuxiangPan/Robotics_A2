@@ -32,6 +32,8 @@ classdef Dobot < handle
             pause(0.001);
             name = ['Dobot_',datestr(now,'yyyymmddTHHMMSSFFF')];
             
+            % some issues with these DH parameters and the test joint
+            % angles. needs to be resolved
             % DH parameters of Dobot Robot
             L1 = Link('d', 0.139, 'a', 0, 'alpha', deg2rad(90), 'qlim', [deg2rad(-90) deg2rad(90)]);
             L2 = Link('d', 0, 'a', 0.135, 'alpha', deg2rad(0), 'qlim', [deg2rad(0) deg2rad(85)]);
