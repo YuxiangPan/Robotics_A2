@@ -5,7 +5,7 @@ classdef Dobot < handle
         model;
         
         % Initial workspace size
-        workspace = [-2 2 -2 2 -0.3 2];   
+        workspace = [-0.5 0.5 -0.5 0.5 -0.3 0.5];   
         
         % Common Joint angles
         %   define the workspace vectors:
@@ -51,7 +51,7 @@ classdef Dobot < handle
                     load('dobotLinks/DobotLinksData.mat');
                 case 1
                     for linkIndex = 0:self.model.n
-                        [faceData{linkIndex+1}, vertexData{linkIndex+1}, plyData{linkIndex+1}]  = plyread(['dobotLinks/UR3Link',num2str(linkIndex),'.ply'],'tri'); %#ok<AGROW>
+                        [faceData{linkIndex+1}, vertexData{linkIndex+1}, plyData{linkIndex+1}]  = plyread(['dobotLinks/Link',num2str(linkIndex),'.ply'],'tri'); %#ok<AGROW>
                     end
                 otherwise
                     error('reloadData = 0 to use preloaded 3D data, or 1 reload 3D data')
@@ -67,7 +67,7 @@ classdef Dobot < handle
             end
             self.model.delay = 0.001;
             
-            % Try to colour the arm (depends if colours are in ply file data)
+            % Try to colour the arm
             for linkIndex = 0:self.model.n
                 handles = findobj('Tag', self.model.name);
                 h = get(handles,'UserData');
@@ -83,6 +83,7 @@ classdef Dobot < handle
             end
         end
         
+        %% Calculate joint 4 angle (the uncontrollable Joint)
         function q = CalcJointAngles(self, joints)
             % Calculates joint angles particularly the uncontrollable
             % joint (joint 4). pass vector with all joints (joint 4 can be
