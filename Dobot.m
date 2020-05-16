@@ -1,8 +1,3 @@
-%% Notes
-% gripper may need to be added into the actual end piece.
-% joint 4 is always vertical ie. theta4 = 360 - theta3 -theta2 (for inverse kinematics roll and pitch must be masked out)
-
-%%
 classdef Dobot < handle
     %Dobot: Creates object for Dobot robot
     properties
@@ -18,10 +13,10 @@ classdef Dobot < handle
         %       qr         vertical 'READY' configuration, arm up
         %       qstretch   arm is stretched out in the X direction
         %       qn         arm is at a nominal non-singular configuration
-        qz = [0, 0, 0, 0, 0, 0];
-        qr = [0, -pi/2, pi/2, 0, 0, 0];
-        qs = [pi/2, 0, 0, -pi/2, 0, 0];
-        qn = [0, -pi/2, 0, -pi/2, 0, 0];
+        qz = [0, 0, 0, 0, 0];
+        qr = [0, 17*pi/36, pi/18, -19*pi/36, 0];
+        qs = [0, 0, 0, 0, 0];
+        qn = [0, pi/4, -pi/4, 0, 0];
     end
     
     methods
@@ -32,23 +27,74 @@ classdef Dobot < handle
         end
         
          %% Set up Dobot Properties
-        function GetDobotRobot(self, baseTr)
+        function GetDobotRobot(self)
             % Give robot a unique name
             pause(0.001);
             name = ['Dobot_',datestr(now,'yyyymmddTHHMMSSFFF')];
             
-            % DH parameters of UR3 Robot
-            L1 = Link('d', 0.08, 'a', 0, 'alpha', deg2rad(90), 'qlim', [deg2rad(-90) deg2rad(90)]);
-            L2 = Link('d', 0, 'a', 0.135, 'alpha', 0, 'qlim', [deg2rad(0) deg2rad(85)]);
-            L3 = Link('d', 0, 'a', 0.160, 'alpha', 0, 'qlim', [deg2rad(-10) deg2rad(95)]);
-            L4 = Link('d', 0.11235, 'a', 0, 'alpha', pi/2, 'qlim', [deg2rad(-90) deg2rad(90)]);
-
+            % DH parameters of Dobot Robot
+            L1 = Link('d', 0.139, 'a', 0, 'alpha', deg2rad(90), 'qlim', [deg2rad(-90) deg2rad(90)]);
+            L2 = Link('d', 0, 'a', 0.135, 'alpha', deg2rad(0), 'qlim', [deg2rad(0) deg2rad(85)]);
+            L3 = Link('d', 0, 'a', 0.147, 'alpha', deg2rad(0), 'qlim', [deg2rad(-95) deg2rad(10)]);
+            L4 = Link('d', 0, 'a', 0.061, 'alpha', deg2rad(90), 'qlim', [deg2rad(-95) deg2rad(95)]);
+            L5 = Link('d', 0.09191, 'a', 0, 'alpha', deg2rad(0), 'qlim', [deg2rad(-90) deg2rad(90)]); % Include the gripper in the last joint
             
-            % Create UR3 robot
-            self.model = SerialLink([L1 L2 L3 L4 L5 L6],'name',name);
-            self.model.base = baseTr;
+            % Create Dobot robot
+            self.model = SerialLink([L1 L2 L3 L4 L5],'name',name);
         end
         
+        %% Plot and try to colour the Robot
+        function PlotAndColourRobot(self)
+            reloadData = 1; % 1 = reload data, 0 = use preloaded data
+            switch reloadData
+                case 0
+                    load('dobotLinks/DobotLinksData.mat');
+                case 1
+                    for linkIndex = 0:self.model.n
+                        [faceData{linkIndex+1}, vertexData{linkIndex+1}, plyData{linkIndex+1}]  = plyread(['dobotLinks/UR3Link',num2str(linkIndex),'.ply'],'tri'); %#ok<AGROW>
+                    end
+                otherwise
+                    error('reloadData = 0 to use preloaded 3D data, or 1 reload 3D data')
+            end
+            for linkIndex = 0:self.model.n
+                self.model.faces{linkIndex+1} = faceData{linkIndex+1};
+                self.model.points{linkIndex+1} = vertexData{linkIndex+1};
+            end
+            
+            self.model.plot3d(self.qn,'noarrow','workspace',self.workspace);
+            if isempty(findobj(get(gca,'Children'),'Type','Light'))
+                camlight
+            end
+            self.model.delay = 0.001;
+            
+            % Try to colour the arm (depends if colours are in ply file data)
+            for linkIndex = 0:self.model.n
+                handles = findobj('Tag', self.model.name);
+                h = get(handles,'UserData');
+                try
+                    h.link(linkIndex+1).Children.FaceVertexCData = [plyData{linkIndex+1}.vertex.red ...
+                                                                  , plyData{linkIndex+1}.vertex.green ...
+                                                                  , plyData{linkIndex+1}.vertex.blue]/255;
+                    h.link(linkIndex+1).Children.FaceColor = 'interp';
+                catch ME_1
+                    disp(ME_1);
+                    continue;
+                end
+            end
+        end
+        
+        function q = CalcJointAngles(self, joints)
+            % Calculates joint angles particularly the uncontrollable
+            % joint (joint 4). pass vector with all joints (joint 4 can be
+            % anything. it will return a the joints with joint 4 at the
+            % correct angle
+            q = joints;
+            if size(joints,2) ~= 5
+                error('Pass in all 5 joints. NOTE: Joint 4 is arbitary');
+            else
+                q(4) = -joints(2)-joints(3);
+            end
+        end
     end
 end
 
