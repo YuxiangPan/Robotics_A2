@@ -5,7 +5,7 @@ classdef Dobot < handle
         model;
         
         % Initial workspace size
-        workspace = [-0.5 0.5 -0.5 0.5 -0.3 0.5];   
+        workspace = [-0.6 0.6 -0.6 0.6 -0.3 0.6];   
         
         % Common Joint angles
         %   define the workspace vectors:
@@ -16,7 +16,7 @@ classdef Dobot < handle
         qz = [0, 0, 0, 0, 0];
         qr = [0, 17*pi/36, pi/18, -19*pi/36, 0];
         qs = [0, 0, 0, 0, 0];
-        qn = [0, pi/4, -pi/4, 0, 0];
+        qn = [0, pi/4, pi/4, 3*pi/2, 0];
     end
     
     methods
@@ -32,14 +32,12 @@ classdef Dobot < handle
             pause(0.001);
             name = ['Dobot_',datestr(now,'yyyymmddTHHMMSSFFF')];
             
-            % some issues with these DH parameters and the test joint
-            % angles. needs to be resolved
             % DH parameters of Dobot Robot
-            L1 = Link('d', 0.139, 'a', 0, 'alpha', deg2rad(90), 'qlim', [deg2rad(-90) deg2rad(90)]);
-            L2 = Link('d', 0, 'a', 0.135, 'alpha', deg2rad(0), 'qlim', [deg2rad(0) deg2rad(85)]);
-            L3 = Link('d', 0, 'a', 0.147, 'alpha', deg2rad(0), 'qlim', [deg2rad(-95) deg2rad(10)]);
-            L4 = Link('d', 0, 'a', 0.061, 'alpha', deg2rad(90), 'qlim', [deg2rad(-95) deg2rad(95)]);
-            L5 = Link('d', 0.09191, 'a', 0, 'alpha', deg2rad(0), 'qlim', [deg2rad(-90) deg2rad(90)]); % Include the gripper in the last joint
+            L1 = Link('d', 0.139, 'a', 0, 'alpha', deg2rad(-90),'offset', deg2rad(0), 'qlim', [deg2rad(-90) deg2rad(90)]);
+            L2 = Link('d', 0, 'a', 0.135, 'alpha', deg2rad(0),'offset', deg2rad(-90), 'qlim', [deg2rad(0) deg2rad(85)]);
+            L3 = Link('d', 0, 'a', 0.147, 'alpha', deg2rad(0),'offset', deg2rad(0), 'qlim', [deg2rad(-10) deg2rad(95)]);
+            L4 = Link('d', 0, 'a', -0.061, 'alpha', deg2rad(90),'offset', deg2rad(-90), 'qlim', [deg2rad(180) deg2rad(370)]);
+            L5 = Link('d', 0.09191, 'a', 0, 'alpha', deg2rad(0),'offset', deg2rad(180), 'qlim', [deg2rad(-90) deg2rad(90)]); % Include the gripper in the last joint
             
             % Create Dobot robot
             self.model = SerialLink([L1 L2 L3 L4 L5],'name',name);
@@ -95,7 +93,7 @@ classdef Dobot < handle
             if size(joints,2) ~= 5
                 error('Pass in all 5 joints. NOTE: Joint 4 is arbitary');
             else
-                q(4) = -joints(2)-joints(3);
+                q(4) = 360-joints(2)-joints(3);
             end
         end
     end
