@@ -13,9 +13,9 @@ classdef Dobot < handle
         %       qr         vertical 'READY' configuration, arm up
         %       qstretch   arm is stretched out in the X direction
         %       qn         arm is at a nominal non-singular configuration
-        qz = [0, 0, 0, 0, 0];
-        qr = [0, 17*pi/36, pi/18, -19*pi/36, 0];
-        qs = [0, 0, 0, 0, 0];
+        qz = [0, 0, 0, 2*pi, 0];
+        qr = [0, 0, 0, 2*pi, 0];
+        qs = [0, 17*pi/36, pi/36, 3*pi/2, 0];
         qn = [0, pi/4, pi/4, 3*pi/2, 0];
     end
     
