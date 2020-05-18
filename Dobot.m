@@ -1,5 +1,5 @@
 classdef Dobot < handle
-    %Dobot: Creates object for Dobot robot
+    %Dobot: Creates object for Dobot robot1
     properties
         % Dobot model
         model;
