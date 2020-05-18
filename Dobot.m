@@ -45,10 +45,10 @@ classdef Dobot < handle
         
         %% Plot and try to colour the Robot
         function PlotAndColourRobot(self)
-            reloadData = 1; % 1 = reload data, 0 = use preloaded data
+            reloadData = 0; % 1 = reload data, 0 = use preloaded data
             switch reloadData
                 case 0
-                    load('dobotLinks/DobotLinksData.mat');
+                    load('dobotLinks/DobotLinksDataPreloaded.mat');
                 case 1
                     for linkIndex = 0:self.model.n
                         [faceData{linkIndex+1}, vertexData{linkIndex+1}, plyData{linkIndex+1}]  = plyread(['dobotLinks/Link',num2str(linkIndex),'.ply'],'tri'); %#ok<AGROW>
