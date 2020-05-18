@@ -86,14 +86,17 @@ classdef Dobot < handle
         %% Calculate joint 4 angle (the uncontrollable Joint)
         function q = CalcJointAngles(self, joints)
             % Calculates joint angles particularly the uncontrollable
-            % joint (joint 4). pass vector with all joints (joint 4 can be
-            % anything. it will return a the joints with joint 4 at the
+            % joint (joint 4). pass vector with 4 controllable joints 
+            % it will return a joint angle with the joints with joint 4 at the
             % correct angle
-            q = joints;
-            if size(joints,2) ~= 5
-                error('Pass in all 5 joints. NOTE: Joint 4 is arbitary');
+            q = [joints, zeros(size(joints,1),1)];
+            if size(joints,2) ~= 4
+                error('Pass in all 4 controllable joint angles');
             else
-                q(4) = 360-joints(2)-joints(3);
+                % Move the last controllable joint to the 5th column
+                q(:,5) = q(:,4);
+                % Calculate the angles of the uncontrollable joint
+                q(:,4) = 2*pi-joints(2)-joints(3);
             end
         end
     end
