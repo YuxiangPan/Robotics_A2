@@ -62,6 +62,7 @@ classdef Dobot < handle
             end
             
             self.model.plot3d(self.qn,'noarrow','workspace',self.workspace);
+            axis equal
             if isempty(findobj(get(gca,'Children'),'Type','Light'))
                 camlight
             end
