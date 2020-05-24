@@ -21,13 +21,13 @@ classdef Dobot < handle
     
     methods
         %% Constructor
-        function self = Dobot()
-            self.GetDobotRobot();
+        function self = Dobot(baseTr)
+            self.GetDobotRobot(baseTr);
             self.PlotAndColourRobot();
         end
         
          %% Set up Dobot Properties
-        function GetDobotRobot(self)
+        function GetDobotRobot(self, baseTr)
             % Give robot a unique name
             pause(0.001);
             name = ['Dobot_',datestr(now,'yyyymmddTHHMMSSFFF')];
@@ -41,6 +41,7 @@ classdef Dobot < handle
             
             % Create Dobot robot
             self.model = SerialLink([L1 L2 L3 L4 L5],'name',name);
+            self.model.base = baseTr;
         end
         
         %% Plot and try to colour the Robot
