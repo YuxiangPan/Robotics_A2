@@ -6,7 +6,7 @@ classdef Environment < handle
         paper;
         eStop;
         
-        workspace = [-0.6 0.6 -0.6 0.6 -0.3 0.6];  
+        workspace = [-0.6 0.6 -1 1 -0.65 0.7];  
     end
     
     methods
