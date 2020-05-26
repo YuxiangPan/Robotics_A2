@@ -5,6 +5,7 @@ close all
 % Dobot base transforms
 dobotBase = transl(0,0,0);
 paperBase = transl(0.2875,0,0);
+pencilBase = transl(0,-0.3,0.055);
 
 % determines if the perspex is plotted or not. set from GUI
 perspexOn = false;
@@ -13,6 +14,7 @@ perspexOn = false;
 % Set up equipment
 dobot = Dobot(dobotBase);
 environment = Environment(paperBase, perspexOn);
+pencil = Pencil(pencilBase);
 axis equal
 
 %% Max's To Do:

@@ -2,7 +2,7 @@ classdef Environment < handle
     properties
         table;
         frame;
-        pen;
+        penHolder;
         paper;
         eStop;
         
