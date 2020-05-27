@@ -98,7 +98,7 @@ classdef Dobot < handle
                 % Move the last controllable joint to the 5th column
                 q(:,5) = q(:,4);
                 % Calculate the angles of the uncontrollable joint
-                q(:,4) = 2*pi-joints(2)-joints(3);
+                q(:,4) = 2*pi-joints(:,2)-joints(:,3);
             end
         end
     end

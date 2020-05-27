@@ -7,8 +7,11 @@ dobotBase = transl(0,0,0);
 paperBase = transl(0.2875,0,0);
 pencilBase = transl(0,-0.3,0.06);
 
-% determines if the perspex is plotted or not. set from GUI
+% Determines if the perspex is plotted or not. set from GUI
 perspexOn = false;
+
+% Determines if the normal process is run or if dobot_q is demonstrated
+showDobotQ = true;
 
 %% Main
 % Set up equipment
@@ -17,6 +20,11 @@ environment = Environment(paperBase, pencilBase, perspexOn);
 pencil = Pencil(pencilBase);
 axis equal
 
+if showDobotQ == true
+    load('dobot_q.mat');
+    dobot.model.animate(dobot.CalcJointAngles(dobot_q));
+else
+end
 %% Max's To Do:
 % I will be responsible for:
 % - Finalising the environment layout
