@@ -39,7 +39,7 @@ classdef Dobot < handle
             L4 = Link('d', 0, 'a', -0.061, 'alpha', deg2rad(90),'offset', deg2rad(-90), 'qlim', [deg2rad(180) deg2rad(370)]);
             L5 = Link('d', 0.09191, 'a', 0, 'alpha', deg2rad(0),'offset', deg2rad(180), 'qlim', [deg2rad(-90) deg2rad(90)]); % Include the gripper in the last joint
             
-            % Create Dobot robot
+            % Create Dobot robotd
             self.model = SerialLink([L1 L2 L3 L4 L5],'name',name);
             self.model.base = baseTr;
         end
@@ -99,6 +99,38 @@ classdef Dobot < handle
                 q(:,5) = q(:,4);
                 % Calculate the angles of the uncontrollable joint
                 q(:,4) = 2*pi-joints(:,2)-joints(:,3);
+            end
+        end
+        
+        %% Pick up pencil function
+        function PickPencil(self, pencil)
+            q0 = deg2rad([-90,85,5,0]);
+            qMatrix = self.CalcJointAngles(self.PathToDesiredTransform(pencil.pencil.base, q0));
+            self.model.animate(qMatrix);
+            
+            
+                T = transl(0,-0.3,0.06)*rpy2tr(pi,0,0);
+    q0 = [0 0.7854 0.7854 4.7124 0];
+    q = dobot.model.ikcon(T,q0)
+    dobot.model.animate(q);
+        end
+        
+        %% Matrix of points from current position to goal position
+        function qMatrixCurrentToGoal = PathToDesiredTransform(self,goalTransform, q0)
+            % Number of steps between each transform
+            steps = 100;
+            qCurrent = self.model.getpos;
+            
+            [qGoal, err, exitflag] = self.model.ikcon(goalTransform, q0);
+
+            % Using Trapezoidal Velocity Method
+            % s is a value between 0,1 that provides the displacement at velcoities
+            % & accelerations that makes full use of motor speeds, and doesn't waste
+            % power accelerating and decelerating.
+            s = lspb(0,1,steps);
+            qMatrixCurrentToGoal = nan(steps,4);
+            for i = 1:steps
+                qMatrixCurrentToGoal(i,:) = (1-s(i))*qCurrent + s(i)*qGoal;
             end
         end
     end
