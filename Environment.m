@@ -5,6 +5,7 @@ classdef Environment < handle
         pencilHolder;
         paper;
         eStop;
+        paperCorners;
         
         workspace = [-0.6 0.6 -1 1 -0.65 0.7];  
     end
@@ -14,6 +15,7 @@ classdef Environment < handle
         function self = Environment(paperBase, pencilBase, perspexOn)
             self.GetEnvironment(paperBase, pencilBase);
             self.PlotAndColourEnvironment(perspexOn);
+            self.CornersOfPaper(paperBase);
         end
         
         %% Setup Environment Properties
@@ -136,6 +138,30 @@ classdef Environment < handle
                     ,eStopPlyData.vertex.blue]/255;
                 h_eStop.link(1).Children.FaceColor = 'interp';
             end
+        end
+        
+                %% Store Corners of Pencil
+        function CornersOfPaper(self, paperBaseTr)
+%             xBase = pencilBaseTr(1,4);
+%             yBase = pencilBaseTr(2,4);
+%             zBase = pencilBaseTr(3,4);
+%             
+%             angle = acos(pencilBaseTr(1,1));
+%             x1Base = pencilBaseTr()*tranls(0,0,
+%             pencilCorners = [X+0.045, X-0.045, X-0.045 X-0.045;
+%                 ]
+            p1 = paperBaseTr*transl(0.05, 0.05, 0);
+            p2 = paperBaseTr*transl(-0.05, 0.05, 0);
+            p3 = paperBaseTr*transl(0.05, -0.05, 0);
+            p4 = paperBaseTr*transl(-0.05, -0.05, 0);
+            
+            self.paperCorners = [p1(1,4), p2(1,4), p3(1,4), p4(1,4);
+                                  p1(2,4), p2(2,4), p3(2,4), p4(2,4);
+                                  p1(3,4), p2(3,4), p3(3,4), p4(3,4)];
+            plot_sphere(self.paperCorners, 0.005, 'b');
+%             P=[1.8,1.8,1.8,1.8;
+%                 -0.25,0.25,0.25,-0.25;
+%                 1.25,1.25,0.75,0.75];
         end
     end
 end
