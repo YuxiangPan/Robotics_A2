@@ -104,15 +104,28 @@ classdef Dobot < handle
         
         %% Pick up pencil function
         function PickPencil(self, pencil)
-            q0 = deg2rad([-90,85,5,0]);
-            qMatrix = self.CalcJointAngles(self.PathToDesiredTransform(pencil.pencil.base, q0));
+            % Move to pencil location
+            goal = pencil.pencil.base
+            qMatrix = self.PathToDesiredTransform(goal, self.qn);
             self.model.animate(qMatrix);
             
+            % Lift pencil up out of holder
+            goal = pencil.pencil.base*transl(0,0,0.07);
+            qMatrix = self.PathToDesiredTransform(goal, self.qn);
+            for i=1:size(qMatrix,1)
+                self.model.animate(qMatrix(i,:));
+                pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
+                pencil.pencil.animate(0);
+            end
             
-                T = transl(0,-0.3,0.06)*rpy2tr(pi,0,0);
-    q0 = [0 0.7854 0.7854 4.7124 0];
-    q = dobot.model.ikcon(T,q0)
-    dobot.model.animate(q);
+            % Move dobot to qn with pencil
+            goal = self.model.fkine(self.qn);
+            qMatrix = self.PathToDesiredTransform(goal, self.qn);
+            for i=1:size(qMatrix,1)
+                self.model.animate(qMatrix(i,:));
+                pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
+                pencil.pencil.animate(0);
+            end
         end
         
         %% Matrix of points from current position to goal position
@@ -121,6 +134,7 @@ classdef Dobot < handle
             steps = 100;
             qCurrent = self.model.getpos;
             
+            goalTransform = self.MakeTransformVertical(goalTransform);
             [qGoal, err, exitflag] = self.model.ikcon(goalTransform, q0);
 
             % Using Trapezoidal Velocity Method
@@ -128,10 +142,40 @@ classdef Dobot < handle
             % & accelerations that makes full use of motor speeds, and doesn't waste
             % power accelerating and decelerating.
             s = lspb(0,1,steps);
-            qMatrixCurrentToGoal = nan(steps,4);
+            qMatrix5Joints = nan(steps,5);
             for i = 1:steps
-                qMatrixCurrentToGoal(i,:) = (1-s(i))*qCurrent + s(i)*qGoal;
+                qMatrix5Joints(i,:) = (1-s(i))*qCurrent + s(i)*qGoal;
             end
+            qMatrix5Joints(:,5) = 0;
+            qMatrix5Joints(:,4) = [];
+            qMatrixCurrentToGoal = self.CalcJointAngles(qMatrix5Joints);
+        end
+        
+        %% Ensure the transform's orientation is correct for uncontrollable joint
+        function tr = MakeTransformVertical(self,tr)
+            tr(1,1) = 1;
+            tr(1,2) = 0;
+            tr(1,3) = 0;
+            tr(2,1) = 0;
+            tr(2,2) = -1;
+            tr(2,3) = 0;
+            tr(3,1) = 0;
+            tr(3,2) = 0;
+            tr(3,3) = -1;
+        end
+        
+        %% Ensure Pencil is pointing down
+        function tr = PencilPointingDown(self,tr)
+            tr(1,1) = 1;
+            tr(1,2) = 0;
+            tr(1,3) = 0;
+            tr(2,1) = 0;
+            tr(2,2) = 1;
+            tr(2,3) = 0;
+            tr(3,1) = 0;
+            tr(3,2) = 0;
+            tr(3,3) = 1;
+            tr
         end
     end
 end
