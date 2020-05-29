@@ -136,7 +136,7 @@ classdef Dobot < handle
         %% Matrix of points from current position to goal position
         function qMatrixCurrentToGoal = PathToDesiredTransform(self,goalTransform, q0)
             % Number of steps between each transform
-            steps = 100;
+            steps = 30;
             qCurrent = self.model.getpos;
             
             goalTransform = self.MakeTransformVertical(goalTransform);
@@ -183,13 +183,13 @@ classdef Dobot < handle
         end
         
         %% Visual Servoing over paper
-        function CentrePencilOverPaper(environment)
+        function CentrePencilOverPaper(self, environment)
             pTarget = [662, 362, 362, 662;
                        362, 362, 662, 662];
                    
             P = environment.paperCorners;
             
-            q0 = self.model.getpos();
+            q0 = self.model.getpos()';
             
             % Add the camera
             self.cam = CentralCamera('focal', 0.08, 'pixel', 10e-5, ...
@@ -202,7 +202,8 @@ classdef Dobot < handle
             %gain of the controler
             lambda = 0.6;
             %depth of the IBVS
-            depth = mean (P(1,:));
+            endEffector = self.model.fkine(self.model.getpos());
+            depth = endEffector(3,4);
             
             Tc0 = self.model.fkine(self.model.getpos());
             
@@ -210,20 +211,22 @@ classdef Dobot < handle
             self.cam.T = Tc0;
             
             % Display points in 3D and the camera
-            cam.plot_camera('Tcam',Tc0, 'label','scale',0.15);
+            self.cam.plot_camera('Tcam',Tc0, 'label','scale',0.015);
             plot_sphere(P, 0.005, 'b')
             
             %Project points to the image
-            p = cam.plot(P, 'Tcam', Tc0);
-            
+            p = self.cam.plot(P, 'Tcam', Tc0);
+            lighting gouraud
+            light
+                       
             %camera view and plotting
-            cam.clf()
-            cam.plot(pTarget, '*'); % create the camera view
-            cam.hold(true);
-            cam.plot(P, 'Tcam', Tc0, 'o'); % create the camera view
+            self.cam.clf()
+            self.cam.plot(pTarget, '*'); % create the camera view
+            self.cam.hold(true);
+            self.cam.plot(P, 'Tcam', Tc0, 'o'); % create the camera view
             pause(2)
-            cam.hold(true);
-            cam.plot(P);    % show initial view
+            self.cam.hold(true);
+            self.cam.plot(P);    % show initial view
             
             %Initialise display arrays
             vel_p = [];
@@ -232,10 +235,10 @@ classdef Dobot < handle
             
             for ksteps=1:100
                 % compute the view of the camera
-                uv = cam.plot(P);
+                uv = self.cam.plot(P);
                 
                 % compute image plane error as a column
-                e = pStar-uv;   % feature error
+                e = pTarget-uv;   % feature error
                 e = e(:);
                 Zest = [];
                 
@@ -243,11 +246,11 @@ classdef Dobot < handle
                 if isempty(depth)
                     % exact depth from simulation (not possible in practice)
                     pt = homtrans(inv(Tcam), P);
-                    J = cam.visjac_p(uv, pt(3,:) );
+                    J = self.cam.visjac_p(uv, pt(3,:) );
                 elseif ~isempty(Zest)
-                    J = cam.visjac_p(uv, Zest);
+                    J = self.cam.visjac_p(uv, Zest);
                 else
-                    J = cam.visjac_p(uv, depth );
+                    J = self.cam.visjac_p(uv, depth );
                 end
                 
                 % compute the velocity of camera in camera frame
@@ -260,7 +263,7 @@ classdef Dobot < handle
                 fprintf('v: %.3f %.3f %.3f %.3f %.3f %.3f\n', v);
                 
                 %compute robot's Jacobian and inverse
-                J2 = r.model.jacobn(q0);
+                J2 = self.model.jacobn(q0);
                 Jinv = pinv(J2);
                 % get joint velocities
                 qp = Jinv*v;
@@ -277,11 +280,11 @@ classdef Dobot < handle
                 
                 %Update joints
                 q = q0 + (1/fps)*qp;
-                r.model.animate(q');
+                self.model.animate(q');
                 
                 %Get camera location
-                Tc = r.model.fkine(q);
-                cam.T = Tc;
+                Tc = self.model.fkine(q);
+                self.cam.T = Tc;
                 
                 drawnow
                 
