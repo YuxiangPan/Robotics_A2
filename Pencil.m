@@ -27,10 +27,10 @@ classdef Pencil < handle
         
         %% Plot and try to colour parts
         function PlotAndColourPencil(self)
-            reloadData = 1;
+            reloadData = 0; % 1 = reload data, 0 = use preloaded data
             switch reloadData
                 case 0
-                    load('environment/PencilDataPreloaded.mat');
+                    load('environment/pencilDataPreloaded.mat');
                 case 1
                     [PencilFaceData, PencilVertexData, PencilPlyData] = plyread('environment/pencil.ply','tri');
                 otherwise

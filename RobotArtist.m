@@ -65,3 +65,7 @@ gui = GUI;
 % - Moving the robot to pick up pencil. this includes transforming the end effector to the pencil tip.
 % - Obstacle avoidance, by not colliding with itself or the table.
 % - completing the GUI and writing the teach function for the x,y,z of the end effector and joint angle control.
+
+
+%% Next
+% adjust camera transform

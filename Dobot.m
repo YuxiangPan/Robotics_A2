@@ -49,7 +49,7 @@ classdef Dobot < handle
         
         %% Plot and try to colour the Robot
         function PlotAndColourRobot(self)
-            reloadData = 0; % 1 = reload data, 0 = use preloaded data
+            reloadData = 1; % 1 = reload data, 0 = use preloaded data
             switch reloadData
                 case 0
                     load('dobotLinks/DobotLinksDataPreloaded.mat');
@@ -187,8 +187,11 @@ classdef Dobot < handle
         %% Visual Servoing over paper, based off tutorial 8
         function CentrePencilOverPaper(self, environment, pencil)
             % Set the target pose of the paper on the camera
-            pTarget = [974, 50, 974, 50
-                        50, 50, 974, 974];
+%             pTarget = [974, 50, 974, 50
+%                         50, 50, 974, 974];
+            pTarget = [762, 262, 762, 262
+                       50, 50, 550, 550];
+                    
             % retreive the corner points of the peice of paper
             P = environment.paperCorners;
             
@@ -198,23 +201,23 @@ classdef Dobot < handle
             q0(4) = [];
             % Add the camera
             self.cam = CentralCamera('focal', 0.08, 'pixel', 10e-5, ...
-                'resolution', [1024 1024], 'centre', [512 512],'name', 'UR10camera');
+                'resolution', [1024 1024], 'centre', [512 512],'name', 'RunCam Eagle');
             
             % frame rate
-            fps = 25;
+            fps = 60;
             
             % Define values
             %   gain of the controler
-            lambda = 0.6;
+            lambda = 1.5;
             %   depth of the IBVS (height of end effector off table (z=0))
             Tc0 = self.model.fkine(self.model.getpos());
             depth = Tc0(3,4);
             
+            Tc0 = self.CameraLocationTr(self.model.fkine(self.model.getpos()));
             % Plot camera and points
             self.cam.T = Tc0;
             % Display points in 3D and the camera
-            %self.cam.plot_camera('Tcam',Tc0, 'label','scale',0.015);
-            
+            self.cam.plot_camera('Tcam',Tc0, 'label','scale',0.01);
             % Project points to the image
             p = self.cam.plot(P, 'Tcam', Tc0);
                        
@@ -227,17 +230,13 @@ classdef Dobot < handle
             self.cam.hold(true);
             self.cam.plot(P);    % show initial view
             
-            %Initialise display arrays
-%             vel_p = [];
-%             uv_p = [];
-%             history = [];
-            
             % Move robot until error is small
             %   Set a high error initially
             e =[-100, -100, -100, -100, -100, -100, -100, -100]';
-            while mean(abs(e)) > 10
+            while mean(abs(e)) > 5
                 % Compute the view of the camera
-                uv = self.cam.plot(P);
+                uv = self.cam.project(P);
+                self.cam.plot(P);
                 
                 % Compute image plane error as a column
                 e = pTarget-uv;   % feature error
@@ -278,16 +277,16 @@ classdef Dobot < handle
                 
                 % Update joints
                 q = q0 + (1/fps)*qp;
-                self.AnimateDobotAndPencil(q',pencil)
+                self.AnimateDobotAndPencil(q',pencil);
 %                 self.model.animate(q');
                 
                 % Get camera location
                 Tc = self.model.fkine(q);
-                self.cam.T = Tc;
+                self.cam.T = self.CameraLocationTr(Tc);
                 
-                drawnow
+                drawnow;
                 
-                pause(1/fps)
+                pause(1/fps);
                 %update current joint position
                 q0 = q;
                 q0(4) = []; 
@@ -314,6 +313,11 @@ classdef Dobot < handle
                 % Calculate the angles of the uncontrollable joint
                 v(4,:) = -v(2,:)-v(3,:);
             end
+        end
+        
+        %% Translate Camera
+        function cameraTr = CameraLocationTr(self, endEffector)
+            cameraTr = endEffector;%*transl(-0.028,0,-0.045);
         end
     end
 end

@@ -46,13 +46,16 @@ classdef Environment < handle
         
         %% Plot and try to colour the Environment
         function PlotAndColourEnvironment(self, perspexOn)
-            reloadData = 1; % 1 = reload data, 0 = use preloaded data
+            reloadData = 0; % 1 = reload data, 0 = use preloaded data
             switch reloadData
                 case 0
                     if perspexOn == true
+                        load('environment/environmentWithPerspexDataPreloaded.mat');
                     else
+                        load('environment/environmentWithoutPerspexDataPreloaded.mat');
                     end
-                    %load('environment/EnvironmentDataPreloaded.mat');
+                    
+                    
                 case 1
                     [tableFaceData, tableVertexData, tablePlyData] = plyread('environment/table.ply','tri');
 
