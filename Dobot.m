@@ -115,22 +115,24 @@ classdef Dobot < handle
             % Lift pencil up out of holder
             goal = pencil.pencil.base*transl(0,0,0.07);
             qMatrix = self.PathToDesiredTransform(goal, self.qn);
-            for i=1:size(qMatrix,1)
-                self.model.animate(qMatrix(i,:));
-                pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
-                pencil.pencil.animate(0);
-                drawnow;
-            end
+            self.AnimateDobotAndPencil(qMatrix, pencil)
+%             for i=1:size(qMatrix,1)
+%                 self.model.animate(qMatrix(i,:));
+%                 pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
+%                 pencil.pencil.animate(0);
+%                 drawnow;
+%             end
             
             % Move dobot to qn with pencil
             goal = self.model.fkine(self.qn);
             qMatrix = self.PathToDesiredTransform(goal, self.qn);
-            for i=1:size(qMatrix,1)
-                self.model.animate(qMatrix(i,:));
-                pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
-                pencil.pencil.animate(0);
-                drawnow;
-            end
+            self.AnimateDobotAndPencil(qMatrix, pencil);
+%             for i=1:size(qMatrix,1)
+%                 self.model.animate(qMatrix(i,:));
+%                 pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
+%                 pencil.pencil.animate(0);
+%                 drawnow;
+%             end
         end
         
         %% Matrix of points from current position to goal position
@@ -182,15 +184,18 @@ classdef Dobot < handle
             tr(3,3) = 1;
         end
         
-        %% Visual Servoing over paper
-        function CentrePencilOverPaper(self, environment)
-            pTarget = [662, 362, 362, 662;
-                       362, 362, 662, 662];
-                   
+        %% Visual Servoing over paper, based off tutorial 8
+        function CentrePencilOverPaper(self, environment, pencil)
+            % Set the target pose of the paper on the camera
+            pTarget = [974, 50, 974, 50
+                        50, 50, 974, 974];
+            % retreive the corner points of the peice of paper
             P = environment.paperCorners;
             
+            % Det the joint angles of the current position of Dobo
             q0 = self.model.getpos()';
-            
+            % Delete the uncontrollable joint angle
+            q0(4) = [];
             % Add the camera
             self.cam = CentralCamera('focal', 0.08, 'pixel', 10e-5, ...
                 'resolution', [1024 1024], 'centre', [512 512],'name', 'UR10camera');
@@ -198,28 +203,22 @@ classdef Dobot < handle
             % frame rate
             fps = 25;
             
-            %Define values
-            %gain of the controler
+            % Define values
+            %   gain of the controler
             lambda = 0.6;
-            %depth of the IBVS
-            endEffector = self.model.fkine(self.model.getpos());
-            depth = endEffector(3,4);
-            
+            %   depth of the IBVS (height of end effector off table (z=0))
             Tc0 = self.model.fkine(self.model.getpos());
+            depth = Tc0(3,4);
             
-            % plot camera and points
+            % Plot camera and points
             self.cam.T = Tc0;
-            
             % Display points in 3D and the camera
-            self.cam.plot_camera('Tcam',Tc0, 'label','scale',0.015);
-            plot_sphere(P, 0.005, 'b')
+            %self.cam.plot_camera('Tcam',Tc0, 'label','scale',0.015);
             
-            %Project points to the image
+            % Project points to the image
             p = self.cam.plot(P, 'Tcam', Tc0);
-            lighting gouraud
-            light
                        
-            %camera view and plotting
+            % Camera view and plotting
             self.cam.clf()
             self.cam.plot(pTarget, '*'); % create the camera view
             self.cam.hold(true);
@@ -229,83 +228,91 @@ classdef Dobot < handle
             self.cam.plot(P);    % show initial view
             
             %Initialise display arrays
-            vel_p = [];
-            uv_p = [];
-            history = [];
+%             vel_p = [];
+%             uv_p = [];
+%             history = [];
             
-            for ksteps=1:100
-                % compute the view of the camera
+            % Move robot until error is small
+            %   Set a high error initially
+            e =[-100, -100, -100, -100, -100, -100, -100, -100]';
+            while mean(abs(e)) > 10
+                % Compute the view of the camera
                 uv = self.cam.plot(P);
                 
-                % compute image plane error as a column
+                % Compute image plane error as a column
                 e = pTarget-uv;   % feature error
                 e = e(:);
-                Zest = [];
                 
                 % compute the Jacobian
-                if isempty(depth)
-                    % exact depth from simulation (not possible in practice)
-                    pt = homtrans(inv(Tcam), P);
-                    J = self.cam.visjac_p(uv, pt(3,:) );
-                elseif ~isempty(Zest)
-                    J = self.cam.visjac_p(uv, Zest);
-                else
-                    J = self.cam.visjac_p(uv, depth );
-                end
+                J = self.cam.visjac_p(uv, depth);
                 
-                % compute the velocity of camera in camera frame
+                % Compute the velocity of camera in camera frame
                 try
                     v = lambda * pinv(J) * e;
                 catch
                     status = -1;
                     return
                 end
-                fprintf('v: %.3f %.3f %.3f %.3f %.3f %.3f\n', v);
                 
-                %compute robot's Jacobian and inverse
+                % Compute robot's Jacobian and inverse
+                %   Calculate uncontrollable joint
+                q0 = self.CalcJointAngles(q0');
+                q0 = q0';
                 J2 = self.model.jacobn(q0);
                 Jinv = pinv(J2);
-                % get joint velocities
-                qp = Jinv*v;
                 
-                %Maximum angular velocity cannot exceed 180 degrees/s
-                ind=find(qp>pi);
+                % Get joint velocities
+                qp = Jinv*v;
+                %   Ensure the correct joint velocity of uncontrollable joint
+                qp = self.CalcJointVelocity(qp);
+                
+                %   Ensure the maximum angular velocity does not exceed 320 degrees/s
+                ind=find(qp>pi*16/9);
                 if ~isempty(ind)
                     qp(ind)=pi;
                 end
-                ind=find(qp<-pi);
+                ind=find(qp<-pi*16/9);
                 if ~isempty(ind)
                     qp(ind)=-pi;
                 end
                 
-                %Update joints
+                % Update joints
                 q = q0 + (1/fps)*qp;
-                self.model.animate(q');
+                self.AnimateDobotAndPencil(q',pencil)
+%                 self.model.animate(q');
                 
-                %Get camera location
+                % Get camera location
                 Tc = self.model.fkine(q);
                 self.cam.T = Tc;
                 
                 drawnow
                 
-                % update the history variables
-                hist.uv = uv(:);
-                vel = v;
-                hist.vel = vel;
-                hist.e = e;
-                hist.en = norm(e);
-                hist.jcond = cond(J);
-                hist.Tcam = Tc;
-                hist.vel_p = vel;
-                hist.uv_p = uv;
-                hist.qp = qp;
-                hist.q = q;
-                
-                history = [history hist];
-                
                 pause(1/fps)
                 %update current joint position
                 q0 = q;
+                q0(4) = []; 
+            end
+        end
+        
+        %% Animate moving the dobot and the pencil at the same time. 
+        function AnimateDobotAndPencil(self, qMatrix, pencil)
+            for i=1:size(qMatrix,1)
+                self.model.animate(qMatrix(i,:));
+                pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
+                pencil.pencil.animate(0);
+                drawnow;
+            end
+        end
+        
+        %% Calculate joint 4 velocity
+        function v = CalcJointVelocity(self, v)
+            % Pass in joint velocity to this function to ensure the
+            % uncontrollable joint has the correct velocity.
+            if size(v,1) ~= 5
+                error('Pass in all 5 joint velocities');
+            else
+                % Calculate the angles of the uncontrollable joint
+                v(4,:) = -v(2,:)-v(3,:);
             end
         end
     end

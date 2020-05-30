@@ -142,26 +142,17 @@ classdef Environment < handle
         
                 %% Store Corners of Pencil
         function CornersOfPaper(self, paperBaseTr)
-%             xBase = pencilBaseTr(1,4);
-%             yBase = pencilBaseTr(2,4);
-%             zBase = pencilBaseTr(3,4);
-%             
-%             angle = acos(pencilBaseTr(1,1));
-%             x1Base = pencilBaseTr()*tranls(0,0,
-%             pencilCorners = [X+0.045, X-0.045, X-0.045 X-0.045;
-%                 ]
+            % Translate to find the corners from the centre of the paper
+            % (this is to simulate a sensor reading the values)
             p1 = paperBaseTr*transl(0.05, 0.05, 0);
             p2 = paperBaseTr*transl(-0.05, 0.05, 0);
             p3 = paperBaseTr*transl(0.05, -0.05, 0);
             p4 = paperBaseTr*transl(-0.05, -0.05, 0);
             
+            % Extract data from transforms to get X,Y,Z coordinates of corners
             self.paperCorners = [p1(1,4), p2(1,4), p3(1,4), p4(1,4);
                                   p1(2,4), p2(2,4), p3(2,4), p4(2,4);
                                   p1(3,4), p2(3,4), p3(3,4), p4(3,4)];
-            plot_sphere(self.paperCorners, 0.005, 'b');
-%             P=[1.8,1.8,1.8,1.8;
-%                 -0.25,0.25,0.25,-0.25;
-%                 1.25,1.25,0.75,0.75];
         end
     end
 end
