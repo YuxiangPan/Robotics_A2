@@ -403,11 +403,57 @@ classdef Dobot < handle
         end
         
         %% Collision Mode
-        function CollisionMode(self)
+        function PlotEllipsoids(self)
+            q0 = self.model.getpos();
+            warning off
+            
+            % Link 0 ellipsoid
+            centerPoint = [0,0,0.027];
+            radii = [0.110,0.110,0.040];
+            [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
+            self.model.points{1} = [X(:),Y(:),Z(:)];
+            self.model.faces{1} = delaunay(self.model.points{1});
+            
             % Link 1 ellipsoid
-            centerPoint = [0,0,0];
-            radii = [1,0.5,0.5];
-            [X,Y,Z
+            centerPoint = [0,0.04,0];
+            radii = [0.070,0.090,0.070];
+            [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
+            self.model.points{2} = [X(:),Y(:),Z(:)];
+            self.model.faces{2} = delaunay(self.model.points{2});
+            
+            % Link 2 ellipsoid
+            centerPoint = [-0.06,-0.03,0];
+            radii = [0.090,0.050,0.040];
+            [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
+            self.model.points{3} = [X(:),Y(:),Z(:)];
+            self.model.faces{3} = delaunay(self.model.points{3});
+            
+            % Link 3 ellipsoid
+            centerPoint = [-0.08,-0.03,0];
+            radii = [0.095,0.045,0.035];
+            [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
+            self.model.points{4} = [X(:),Y(:),Z(:)];
+            self.model.faces{4} = delaunay(self.model.points{4});
+           
+            % Link 4 ellipsoid
+            centerPoint = [0.04,0,-0.015];
+            radii = [0.04,0.02,0.035];
+            [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
+            self.model.points{5} = [X(:),Y(:),Z(:)];
+            self.model.faces{5} = delaunay(self.model.points{5});
+            
+            % Link 5 ellipsoid
+            centerPoint = [0,0,-0.090];
+            radii = [0.040,0.030,0.095];
+            [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
+            self.model.points{6} = [X(:),Y(:),Z(:)];
+            self.model.faces{6} = delaunay(self.model.points{6});
+            
+            
+            warning on
+            self.model.plot3d(self.qn);
+            axis equal
+            camlight;
         end
     end
 end
