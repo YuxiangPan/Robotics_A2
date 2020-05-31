@@ -143,7 +143,7 @@ classdef Environment < handle
             end
         end
         
-                %% Store Corners of Pencil
+        %% Store Corners of Pencil
         function CornersOfPaper(self, paperBaseTr)
             % Translate to find the corners from the centre of the paper
             % (this is to simulate a sensor reading the values)
@@ -157,6 +157,7 @@ classdef Environment < handle
                                   p1(2,4), p2(2,4), p3(2,4), p4(2,4);
                                   p1(3,4), p2(3,4), p3(3,4), p4(3,4)];
         end
+        
     end
 end
 

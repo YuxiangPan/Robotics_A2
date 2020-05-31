@@ -7,6 +7,12 @@ classdef Dobot < handle
         % Camera
         cam
         
+        % Steps between each movement
+        steps = 30;
+        
+        % Shape corners
+        shapeCorners = [];
+        
         % Initial workspace size
         workspace = [-0.6 0.6 -1 1 -0.65 0.7];   
         
@@ -126,8 +132,6 @@ classdef Dobot < handle
         
         %% Matrix of points from current position to goal position
         function qMatrixCurrentToGoal = PathToDesiredTransform(self,goalTransform, q0)
-            % Number of steps between each transform
-            steps = 30;
             qCurrent = self.model.getpos;
             
             goalTransform = self.MakeTransformVertical(goalTransform);
@@ -137,9 +141,9 @@ classdef Dobot < handle
             % s is a value between 0,1 that provides the displacement at velcoities
             % & accelerations that makes full use of motor speeds, and doesn't waste
             % power accelerating and decelerating.
-            s = lspb(0,1,steps);
-            qMatrix5Joints = nan(steps,5);
-            for i = 1:steps
+            s = lspb(0,1,self.steps);
+            qMatrix5Joints = nan(self.steps,5);
+            for i = 1:self.steps
                 qMatrix5Joints(i,:) = (1-s(i))*qCurrent + s(i)*qGoal;
             end
             qMatrix5Joints(:,5) = 0;
@@ -175,9 +179,11 @@ classdef Dobot < handle
         
         %% Visual Servoing over paper, based off tutorial 8
         function CentrePencilOverPaper(self, environment, pencil)
-            showCamView = false;
+            % Do you want to plot the cameras view?
+            showCamView = true; % true = plot, false = don't plot
+            
             % Set the target pose of the paper on the camera
-            pTarget = [900, 400, 900, 400
+            pTarget = [910, 410, 910, 410
                        262, 262, 762, 762];
 
             % retreive the corner points of the peice of paper
@@ -309,6 +315,99 @@ classdef Dobot < handle
         %% Translate Camera
         function cameraTr = CameraLocationTr(self, endEffector)
             cameraTr = endEffector*transl(-0.028,0,-0.045);%*rpy2tr(0,0,-pi/2);
+        end
+        
+        %% Plan points to draw shape
+        function points = planCornersOfShape(self, shape, scale)
+            centre = self.model.fkine(self.model.getpos());
+            centre(3,4) = 0.005;
+            distanceFromCentre = scale*0.02;
+            switch shape
+                case 'Square'
+                    p1 = centre*transl(distanceFromCentre, distanceFromCentre, 0);
+                    p2 = centre*transl(-distanceFromCentre, distanceFromCentre, 0);
+                    p3 = centre*transl(distanceFromCentre, -distanceFromCentre, 0);
+                    p4 = centre*transl(-distanceFromCentre, -distanceFromCentre, 0);
+                    
+                    % Extract data from transforms to get X,Y,Z coordinates of corners
+                    self.shapeCorners = [p1(1,4), p2(1,4), p3(1,4), p4(1,4);
+                                        p1(2,4), p2(2,4), p3(2,4), p4(2,4);
+                                        p1(3,4), p2(3,4), p3(3,4), p4(3,4)];
+                                    plot_sphere(self.shapeCorners, 0.01, 'b');
+                    
+                case 'Triangle'
+                    p1 = centre*transl(distanceFromCentre, 0, 0);
+                    p2 = centre*transl(-distanceFromCentre*sin(pi/6), distanceFromCentre*cos(pi/6), 0);
+                    p3 = centre*transl(-distanceFromCentre*sin(pi/6), -distanceFromCentre*cos(pi/6), 0);
+                    
+                    % Extract data from transforms to get X,Y,Z coordinates of corners
+                    self.shapeCorners = [p1(1,4), p2(1,4), p3(1,4);
+                                        p1(2,4), p2(2,4), p3(2,4);
+                                        p1(3,4), p2(3,4), p3(3,4)];
+                                    plot_sphere(self.shapeCorners, 0.01, 'b');
+            end 
+        end
+        
+        %% Resolved Motion Rate Control
+        % For this project the yaw of the end effector doesn't matter for
+        % RMRC        
+        function StraightMovementToNewTransform(self, goalTr)
+            % get current joint angles
+            q0 = self.model.getpos();
+            % get current end effector transform
+            startTr = self.model.fkine(q0);
+            % get coordinates of start and goal poitns
+            xStart = startTr(1:3,4)';
+            %xStart(4) = 0;
+            xGoal = goalTr(1:3,4)';
+            deltaT = 0.05; %descrete timestep
+            
+            % Matrix of way points
+            x = zeros(3,self.steps);
+            s = lspb(0,1,self.steps);
+            for i = 1:self.steps
+                x(:,i) = xStart*(1-s(i)) + s(i)*xGoal;
+            end
+            
+            % create matrix of joint angles
+            qMatrix = nan(self.steps,3);
+            qMatrix(1,:) = q0(1:3);
+            
+            for i = 1:self.steps-1
+                xdot = (x(:,i+1) - x(:,i))/deltaT;                             % Calculate velocity at discrete time step
+                q = [qMatrix(i,:), 0]
+                q = self.CalcJointAngles(q)
+                J = self.model.jacob0(q);            % Get the Jacobian at the current state
+                J = J(1:3,1:3);                           % Take only first 3 rows for 3 joints
+                m(:,i)= sqrt(det(J*J'));                                                % Measure of Manipulability
+                if m(:,i) < 0.1
+                    qdot = inv(J'*J + 0.01*eye(3))*J'*xdot;
+                else
+                    qdot = inv(J) * xdot;
+                end
+                %qdot = inv(J)*xdot;                             % Solve velocitities via RMRC
+                
+                qMatrix(i+1,:) =  qMatrix(i,:) + deltaT*qdot';                   % Update next joint state
+            end
+            qMatrix(:,4) = 0;
+            qMatrix = self.CalcJointAngles(qMatrix);
+            points = [];
+            for i = 1:size(qMatrix,1)
+                self.model.animate(qMatrix(i,:));
+                endTr = self.model.fkine(qMatrix(i,:))
+                point = endTr(1:3,4);
+                points(:,i) = point;
+                %plot3(point');
+            end
+            plot_sphere(points, 0.01, 'b');
+        end
+        
+        %% Collision Mode
+        function CollisionMode(self)
+            % Link 1 ellipsoid
+            centerPoint = [0,0,0];
+            radii = [1,0.5,0.5];
+            [X,Y,Z
         end
     end
 end
