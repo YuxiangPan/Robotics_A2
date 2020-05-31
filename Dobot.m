@@ -108,7 +108,7 @@ classdef Dobot < handle
         %% Pick up pencil function
         function PickPencil(self, pencil)
             % Move to pick up 
-            goal = pencil.pencil.base
+            goal = pencil.pencil.base;
             qMatrix = self.PathToDesiredTransform(goal, self.qn);
             self.model.animate(qMatrix);
             
@@ -116,23 +116,12 @@ classdef Dobot < handle
             goal = pencil.pencil.base*transl(0,0,0.07);
             qMatrix = self.PathToDesiredTransform(goal, self.qn);
             self.AnimateDobotAndPencil(qMatrix, pencil)
-%             for i=1:size(qMatrix,1)
-%                 self.model.animate(qMatrix(i,:));
-%                 pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
-%                 pencil.pencil.animate(0);
-%                 drawnow;
-%             end
             
             % Move dobot to qn with pencil
             goal = self.model.fkine(self.qn);
             qMatrix = self.PathToDesiredTransform(goal, self.qn);
             self.AnimateDobotAndPencil(qMatrix, pencil);
-%             for i=1:size(qMatrix,1)
-%                 self.model.animate(qMatrix(i,:));
-%                 pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
-%                 pencil.pencil.animate(0);
-%                 drawnow;
-%             end
+
         end
         
         %% Matrix of points from current position to goal position
@@ -186,14 +175,14 @@ classdef Dobot < handle
         
         %% Visual Servoing over paper, based off tutorial 8
         function CentrePencilOverPaper(self, environment, pencil)
+            showCamView = false;
             % Set the target pose of the paper on the camera
-%             pTarget = [974, 50, 974, 50
-%                         50, 50, 974, 974];
-            pTarget = [762, 262, 762, 262
-                       50, 50, 550, 550];
-                    
+            pTarget = [900, 400, 900, 400
+                       262, 262, 762, 762];
+
             % retreive the corner points of the peice of paper
             P = environment.paperCorners;
+            %plot_sphere(P, 0.01, 'b');
             
             % Det the joint angles of the current position of Dobo
             q0 = self.model.getpos()';
@@ -217,26 +206,29 @@ classdef Dobot < handle
             % Plot camera and points
             self.cam.T = Tc0;
             % Display points in 3D and the camera
-            self.cam.plot_camera('Tcam',Tc0, 'label','scale',0.01);
+            %self.cam.plot_camera('Tcam',Tc0, 'label','scale',0.01);
             % Project points to the image
-            p = self.cam.plot(P, 'Tcam', Tc0);
+            %p = self.cam.plot(P, 'Tcam', Tc0);
                        
             % Camera view and plotting
-            self.cam.clf()
-            self.cam.plot(pTarget, '*'); % create the camera view
-            self.cam.hold(true);
-            self.cam.plot(P, 'Tcam', Tc0, 'o'); % create the camera view
-            pause(2)
-            self.cam.hold(true);
-            self.cam.plot(P);    % show initial view
-            
+            if showCamView == true
+                self.cam.clf()
+                self.cam.plot(pTarget, '*'); % create the camera view
+                self.cam.hold(true);
+                self.cam.plot(P, 'Tcam', Tc0, 'o'); % create the camera view
+                pause(2)
+                self.cam.hold(true);
+                self.cam.plot(P);    % show initial view
+            end
             % Move robot until error is small
             %   Set a high error initially
             e =[-100, -100, -100, -100, -100, -100, -100, -100]';
             while mean(abs(e)) > 5
                 % Compute the view of the camera
                 uv = self.cam.project(P);
-                self.cam.plot(P);
+                if showCamView == true
+                    self.cam.plot(P);
+                end
                 
                 % Compute image plane error as a column
                 e = pTarget-uv;   % feature error
@@ -268,17 +260,16 @@ classdef Dobot < handle
                 %   Ensure the maximum angular velocity does not exceed 320 degrees/s
                 ind=find(qp>pi*16/9);
                 if ~isempty(ind)
-                    qp(ind)=pi;
+                    qp(ind)=pi*16/9;
                 end
                 ind=find(qp<-pi*16/9);
                 if ~isempty(ind)
-                    qp(ind)=-pi;
+                    qp(ind)=-pi*16/9;
                 end
                 
                 % Update joints
                 q = q0 + (1/fps)*qp;
                 self.AnimateDobotAndPencil(q',pencil);
-%                 self.model.animate(q');
                 
                 % Get camera location
                 Tc = self.model.fkine(q);
@@ -317,7 +308,7 @@ classdef Dobot < handle
         
         %% Translate Camera
         function cameraTr = CameraLocationTr(self, endEffector)
-            cameraTr = endEffector;%*transl(-0.028,0,-0.045);
+            cameraTr = endEffector*transl(-0.028,0,-0.045);%*rpy2tr(0,0,-pi/2);
         end
     end
 end
