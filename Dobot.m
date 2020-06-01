@@ -8,7 +8,7 @@ classdef Dobot < handle
         cam
         
         % Steps between each movement
-        steps = 100;
+        steps = 30;
         
         % Shape corners
         shapeCorners = [];
@@ -484,28 +484,40 @@ classdef Dobot < handle
             centreOfCube = [0.25,0,0.1];
             cubePoints = cubePoints + repmat(centreOfCube,size(cubePoints,1),1);
             hold on
-            %cube_h = plot3(cubePoints(:,1),cubePoints(:,2),cubePoints(:,3),'b.');
+            cube_h = plot3(cubePoints(:,1),cubePoints(:,2),cubePoints(:,3),'b.');
             hold off
             axis equal
             plotOptions.plotFaces = true;
             rectangularPrismCorners1 = [centreOfCube(1)-cubeSides,centreOfCube(2)-cubeSides,centreOfCube(3)-cubeSides];
             rectangularPrismCorners2 = [centreOfCube(1)+cubeSides,centreOfCube(2)+cubeSides,centreOfCube(3)+cubeSides];
             % Use provided Rectangular prism function from tutorials
-            RectangularPrism(rectangularPrismCorners1,rectangularPrismCorners2,plotOptions);
+            %RectangularPrism(rectangularPrismCorners1,rectangularPrismCorners2,plotOptions);
             
             qEnd = deg2rad([90,85,5,270,0]);
             endOfSweepTr = self.model.fkine(qEnd);
             qMatrix = self.PathToDesiredTransform(endOfSweepTr,q0);
             
+            tr = zeros(4,4,self.model.n+1);
+            tr(:,:,1) = self.model.base;
+            L = self.model.links;
+
             for i = 1:size(qMatrix,1)
-                tr = self.model.fkine(qMatrix(i,:));
-                cubePointsAndOnes = [inv(tr) * [cubePoints,ones(size(cubePoints,1),1)]']';
-                updatedCubePoints = cubePointsAndOnes(:,1:3);
-                algebraicDist = GetAlgebraicDist(updatedCubePoints, centerPoint, radii);
-                pointsInside = find(algebraicDist < 1);
-                display(['2.9: There are now ', num2str(size(pointsInside,1)),' points inside']);
+                for j = 1:self.model.n
+                    tr(:,:,j+1) = tr(:,:,j) * trotz(qMatrix(i,j)+L(j).offset) * transl(0,0,L(j).d) * transl(L(j).a,0,0) * trotx(L(j).alpha);
+                end
+                for j = 1:size(tr,3)
+                    cubePointsAndOnes = [inv(tr(:,:,j)) * [cubePoints,ones(size(cubePoints,1),1)]']';
+                    updatedCubePoints = cubePointsAndOnes(:,1:3);
+                    algebraicDist = GetAlgebraicDist(updatedCubePoints, centerPoints{j}, radiiValues{j});
+                    pointsInside = find(algebraicDist < 1);
+                    display(['2.10: There are ', num2str(size(pointsInside,1)),' points inside the ',num2str(j),'th ellipsoid']);
+                end
+                display(' ');
                 self.model.animate(qMatrix(i,:));
+                keyboard;
             end
+            
+            %after here redo qMatrix up to collision point -1
             
 %             tr = self.model.fkine(q0);
 %             cubePointsAndOnes = [inv(tr) * [cubePoints,ones(size(cubePoints,1),1)]']';

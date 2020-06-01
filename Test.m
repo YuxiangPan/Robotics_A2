@@ -16,6 +16,7 @@ dobot.StraightMovementToNewTransform(goalTr);
 %% Collision
 clear all
 close all
+clc
 
 dobot = Dobot(transl(0,0,0));
 dobot.CollisionMode();
