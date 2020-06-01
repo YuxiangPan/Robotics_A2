@@ -8,7 +8,7 @@ classdef Dobot < handle
         cam
         
         % Steps between each movement
-        steps = 30;
+        steps = 100;
         
         % Shape corners
         shapeCorners = [];
@@ -402,9 +402,10 @@ classdef Dobot < handle
             plot_sphere(points, 0.01, 'b');
         end
         
-        %% Collision Mode
-        function PlotEllipsoids(self)
-            q0 = self.model.getpos();
+        %% Plot the Ellipsoids around each joint
+        function CollisionMode(self)
+            q0 = deg2rad([-90,85,5,270,0]);
+            self.model.animate(q0);
             warning off
             
             % Link 0 ellipsoid
@@ -413,6 +414,8 @@ classdef Dobot < handle
             [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
             self.model.points{1} = [X(:),Y(:),Z(:)];
             self.model.faces{1} = delaunay(self.model.points{1});
+            centerPoints{1} = centerPoint;
+            radiiValues{1} = radii;
             
             % Link 1 ellipsoid
             centerPoint = [0,0.04,0];
@@ -420,6 +423,8 @@ classdef Dobot < handle
             [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
             self.model.points{2} = [X(:),Y(:),Z(:)];
             self.model.faces{2} = delaunay(self.model.points{2});
+            centerPoints{2} = centerPoint;
+            radiiValues{2} = radii;
             
             % Link 2 ellipsoid
             centerPoint = [-0.06,-0.03,0];
@@ -427,6 +432,8 @@ classdef Dobot < handle
             [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
             self.model.points{3} = [X(:),Y(:),Z(:)];
             self.model.faces{3} = delaunay(self.model.points{3});
+            centerPoints{3} = centerPoint;
+            radiiValues{3} = radii;
             
             % Link 3 ellipsoid
             centerPoint = [-0.08,-0.03,0];
@@ -434,13 +441,17 @@ classdef Dobot < handle
             [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
             self.model.points{4} = [X(:),Y(:),Z(:)];
             self.model.faces{4} = delaunay(self.model.points{4});
-           
+            centerPoints{4} = centerPoint;
+            radiiValues{4} = radii;
+            
             % Link 4 ellipsoid
             centerPoint = [0.04,0,-0.015];
             radii = [0.04,0.02,0.035];
             [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
             self.model.points{5} = [X(:),Y(:),Z(:)];
             self.model.faces{5} = delaunay(self.model.points{5});
+            centerPoints{5} = centerPoint;
+            radiiValues{5} = radii;
             
             % Link 5 ellipsoid
             centerPoint = [0,0,-0.090];
@@ -448,12 +459,99 @@ classdef Dobot < handle
             [X,Y,Z] = ellipsoid(centerPoint(1), centerPoint(2), centerPoint(3), radii(1), radii(2), radii(3));
             self.model.points{6} = [X(:),Y(:),Z(:)];
             self.model.faces{6} = delaunay(self.model.points{6});
-            
+            centerPoints{6} = centerPoint;
+            radiiValues{6} = radii;
             
             warning on
-            self.model.plot3d(self.qn);
+            self.model.plot3d(q0);
             axis equal
             camlight;
+            
+            
+            
+            
+            % Plot cube
+            cubeSides = 0.1;
+            [X,Y] = meshgrid(-cubeSides:0.01:cubeSides,-cubeSides:0.01:cubeSides);
+            Z = repmat(cubeSides,size(X,1),size(X,2));
+            cubePoints = [X(:),Y(:),Z(:)];
+            cubePoints = [ cubePoints; ...
+                           cubePoints * rotx(pi/2); ...
+                           cubePoints * rotx(pi); ...
+                           cubePoints * rotx(3*pi/2); ...
+                           cubePoints * roty(pi/2); ...
+                           cubePoints * roty(-pi/2)];
+            centreOfCube = [0.25,0,0.1];
+            cubePoints = cubePoints + repmat(centreOfCube,size(cubePoints,1),1);
+            hold on
+            %cube_h = plot3(cubePoints(:,1),cubePoints(:,2),cubePoints(:,3),'b.');
+            hold off
+            axis equal
+            plotOptions.plotFaces = true;
+            rectangularPrismCorners1 = [centreOfCube(1)-cubeSides,centreOfCube(2)-cubeSides,centreOfCube(3)-cubeSides];
+            rectangularPrismCorners2 = [centreOfCube(1)+cubeSides,centreOfCube(2)+cubeSides,centreOfCube(3)+cubeSides];
+            % Use provided Rectangular prism function from tutorials
+            RectangularPrism(rectangularPrismCorners1,rectangularPrismCorners2,plotOptions);
+            
+            qEnd = deg2rad([90,85,5,270,0]);
+            endOfSweepTr = self.model.fkine(qEnd);
+            qMatrix = self.PathToDesiredTransform(endOfSweepTr,q0);
+            
+            for i = 1:size(qMatrix,1)
+                tr = self.model.fkine(qMatrix(i,:));
+                cubePointsAndOnes = [inv(tr) * [cubePoints,ones(size(cubePoints,1),1)]']';
+                updatedCubePoints = cubePointsAndOnes(:,1:3);
+                algebraicDist = GetAlgebraicDist(updatedCubePoints, centerPoint, radii);
+                pointsInside = find(algebraicDist < 1);
+                display(['2.9: There are now ', num2str(size(pointsInside,1)),' points inside']);
+                self.model.animate(qMatrix(i,:));
+            end
+            
+%             tr = self.model.fkine(q0);
+%             cubePointsAndOnes = [inv(tr) * [cubePoints,ones(size(cubePoints,1),1)]']';
+%             updatedCubePoints = cubePointsAndOnes(:,1:3);
+%             algebraicDist = GetAlgebraicDist(updatedCubePoints, centerPoint, radii);
+%             pointsInside = find(algebraicDist < 1);
+%             display(['2.9: There are now ', num2str(size(pointsInside,1)),' points inside']);
+
+%             collision = false;
+%             % Collision between 
+%             for i = 0:self.model.n
+%                 algebraicDist = GetAlgebraicDist(cubePoints, centerPoints{i+1}, radiiValues{i+1});
+%                 pointsInside = find(algebraicDist < 1);
+%                 if size(pointsInside,1) >= 1
+%                     collision = true;
+%                     display('collision');
+%                     break;
+%                 end
+% 
+%             end
+            
         end
+        
+%         %% asdf
+%         function cubePoints = PlotCollisionObject(self)
+%             [X,Y] = meshgrid(-:0.1:5,-5:0.1:5);
+%             Z = repmat(5,size(X,1),size(X,2));
+%             cubePoints = [X(:),Y(:),Z(:)];
+%             cubePoints = [ cubePoints; ...
+%                 cubePoints * rotx(pi/2); ...
+%                 cubePoints * rotx(pi); ...
+%                 cubePoints * rotx(3*pi/2); ...
+%                 cubePoints * roty(pi/2); ...
+%                 cubePoints * roty(-pi/2)];
+% 
+%         end
+%         
+%         %% asdfasdf
+%         function qMatrix = CollisionChecking(self, cubePoints)
+%             q0 = [-pi/2, pi/4, pi/4, 3*pi/2, 0];
+%             cubeAtOigin_h = plot3(cubePoints(:,1),cubePoints(:,2),cubePoints(:,3),'r.');
+%             algebraicDist = GetAlgebraicDist(cubePoints, centerPoint, radii);
+%             pointsInside = find(algebraicDist < 1);
+%             for i = 0:self.model.n
+%                 q
+%             end
+%         end
     end
 end
