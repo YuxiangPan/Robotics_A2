@@ -404,6 +404,7 @@ classdef Dobot < handle
         
         %% Plot the Ellipsoids around each joint
         function CollisionMode(self)
+            % Beginning of sweep
             q0 = deg2rad([-90,85,5,270,0]);
             self.model.animate(q0);
             warning off
@@ -467,10 +468,7 @@ classdef Dobot < handle
             axis equal
             camlight;
             
-            
-            
-            
-            % Plot cube
+            % Define Cube Points
             cubeSides = 0.1;
             [X,Y] = meshgrid(-cubeSides:0.01:cubeSides,-cubeSides:0.01:cubeSides);
             Z = repmat(cubeSides,size(X,1),size(X,2));
@@ -484,86 +482,57 @@ classdef Dobot < handle
             centreOfCube = [0.25,0,0.1];
             cubePoints = cubePoints + repmat(centreOfCube,size(cubePoints,1),1);
             hold on
-            cube_h = plot3(cubePoints(:,1),cubePoints(:,2),cubePoints(:,3),'b.');
+%             cube_h = plot3(cubePoints(:,1),cubePoints(:,2),cubePoints(:,3),'b.');
             hold off
             axis equal
+            % Plot cube body (note how plotting the points is commented out above)
             plotOptions.plotFaces = true;
             rectangularPrismCorners1 = [centreOfCube(1)-cubeSides,centreOfCube(2)-cubeSides,centreOfCube(3)-cubeSides];
             rectangularPrismCorners2 = [centreOfCube(1)+cubeSides,centreOfCube(2)+cubeSides,centreOfCube(3)+cubeSides];
             % Use provided Rectangular prism function from tutorials
-            %RectangularPrism(rectangularPrismCorners1,rectangularPrismCorners2,plotOptions);
+            RectangularPrism(rectangularPrismCorners1,rectangularPrismCorners2,plotOptions);
             
+            % Define end of sweep and calculate qMatrix to get there
             qEnd = deg2rad([90,85,5,270,0]);
             endOfSweepTr = self.model.fkine(qEnd);
             qMatrix = self.PathToDesiredTransform(endOfSweepTr,q0);
             
+            % Transform for each link
             tr = zeros(4,4,self.model.n+1);
             tr(:,:,1) = self.model.base;
+            % store DH parameters to calculate the transform at each link
             L = self.model.links;
 
+            % This collision checking technique is similar to that provided
+            % in tutorial 6
+            collisionDetected = false;
+            % Loop through each joint on the qMatrix
             for i = 1:size(qMatrix,1)
+                % Find transform at each link
                 for j = 1:self.model.n
                     tr(:,:,j+1) = tr(:,:,j) * trotz(qMatrix(i,j)+L(j).offset) * transl(0,0,L(j).d) * transl(L(j).a,0,0) * trotx(L(j).alpha);
                 end
+                % Determine if there are any intersections at each link
                 for j = 1:size(tr,3)
                     cubePointsAndOnes = [inv(tr(:,:,j)) * [cubePoints,ones(size(cubePoints,1),1)]']';
                     updatedCubePoints = cubePointsAndOnes(:,1:3);
                     algebraicDist = GetAlgebraicDist(updatedCubePoints, centerPoints{j}, radiiValues{j});
                     pointsInside = find(algebraicDist < 1);
-                    display(['2.10: There are ', num2str(size(pointsInside,1)),' points inside the ',num2str(j),'th ellipsoid']);
+                    if pointsInside >= 1
+                        collisionDetected = true;
+                    end
                 end
-                display(' ');
-                self.model.animate(qMatrix(i,:));
-                keyboard;
+                if collisionDetected == true;
+                    % store the joint angles before the collision
+                    qBeforeCollision = qMatrix(i-1,:);
+                    break;
+                end
             end
-            
-            %after here redo qMatrix up to collision point -1
-            
-%             tr = self.model.fkine(q0);
-%             cubePointsAndOnes = [inv(tr) * [cubePoints,ones(size(cubePoints,1),1)]']';
-%             updatedCubePoints = cubePointsAndOnes(:,1:3);
-%             algebraicDist = GetAlgebraicDist(updatedCubePoints, centerPoint, radii);
-%             pointsInside = find(algebraicDist < 1);
-%             display(['2.9: There are now ', num2str(size(pointsInside,1)),' points inside']);
-
-%             collision = false;
-%             % Collision between 
-%             for i = 0:self.model.n
-%                 algebraicDist = GetAlgebraicDist(cubePoints, centerPoints{i+1}, radiiValues{i+1});
-%                 pointsInside = find(algebraicDist < 1);
-%                 if size(pointsInside,1) >= 1
-%                     collision = true;
-%                     display('collision');
-%                     break;
-%                 end
-% 
-%             end
-            
+            % recalculate a qMatrix that doesn't collide with block
+            trBeforeCollision = self.model.fkine(qBeforeCollision);
+            qMatrix = self.PathToDesiredTransform(trBeforeCollision, q0);
+            self.model.animate(qMatrix);
         end
-        
-%         %% asdf
-%         function cubePoints = PlotCollisionObject(self)
-%             [X,Y] = meshgrid(-:0.1:5,-5:0.1:5);
-%             Z = repmat(5,size(X,1),size(X,2));
-%             cubePoints = [X(:),Y(:),Z(:)];
-%             cubePoints = [ cubePoints; ...
-%                 cubePoints * rotx(pi/2); ...
-%                 cubePoints * rotx(pi); ...
-%                 cubePoints * rotx(3*pi/2); ...
-%                 cubePoints * roty(pi/2); ...
-%                 cubePoints * roty(-pi/2)];
-% 
-%         end
-%         
-%         %% asdfasdf
-%         function qMatrix = CollisionChecking(self, cubePoints)
-%             q0 = [-pi/2, pi/4, pi/4, 3*pi/2, 0];
-%             cubeAtOigin_h = plot3(cubePoints(:,1),cubePoints(:,2),cubePoints(:,3),'r.');
-%             algebraicDist = GetAlgebraicDist(cubePoints, centerPoint, radii);
-%             pointsInside = find(algebraicDist < 1);
-%             for i = 0:self.model.n
-%                 q
-%             end
-%         end
+ 
     end
 end
