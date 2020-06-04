@@ -8,7 +8,7 @@ classdef Dobot < handle
         cam
         
         % Steps between each movement
-        steps = 30;
+        steps = 100;
         
         % Shape corners
         shapeCorners = [];
@@ -370,31 +370,32 @@ classdef Dobot < handle
             end
             
             % create matrix of joint angles
-            qMatrix = nan(self.steps,3);
-            qMatrix(1,:) = q0(1:3);
+            qMatrix = nan(self.steps,5);
+            qMatrix(1,:) = q0(1:5);
             
             for i = 1:self.steps-1
-                xdot = (x(:,i+1) - x(:,i))/deltaT;                             % Calculate velocity at discrete time step
-                q = [qMatrix(i,:), 0]
-                q = self.CalcJointAngles(q)
-                J = self.model.jacob0(q);            % Get the Jacobian at the current state
-                J = J(1:3,1:3);                           % Take only first 3 rows for 3 joints
-                m(:,i)= sqrt(det(J*J'));                                                % Measure of Manipulability
-                if m(:,i) < 0.1
-                    qdot = inv(J'*J + 0.01*eye(3))*J'*xdot;
+                xdot = [[(x(:,i+1) - x(:,i))/deltaT]; zeros(2,1)];                             % Calculate velocity at discrete time step
+                xdot = self.CalcJointVelocity(xdot)
+                J = self.model.jacob0(qMatrix(i,:));            % Get the Jacobian at the current state
+                J = J(1:5,1:5);                           % Take only first 3 rows for 3 joints
+                m = sqrt(det(J*J'))                                                % Measure of Manipulability
+                if m < 0.001
+                    lambda = (1-m/0.001)*5E-2;
+                    %qdot = inv(J'*J + 0.01*eye(5))*J'*xdot;
                 else
-                    qdot = inv(J) * xdot;
+                    lambda = 0;
+                    %qdot = inv(J) * xdot;
                 end
-                %qdot = inv(J)*xdot;                             % Solve velocitities via RMRC
-                
+                invJ = inv(J'*J + lambda *eye(5))*J';
+                qdot = inv(J)*xdot;                             % Solve velocitities via RMRC
+                qdot(5) = 0;
                 qMatrix(i+1,:) =  qMatrix(i,:) + deltaT*qdot';                   % Update next joint state
             end
-            qMatrix(:,4) = 0;
-            qMatrix = self.CalcJointAngles(qMatrix);
+            
             points = [];
             for i = 1:size(qMatrix,1)
                 self.model.animate(qMatrix(i,:));
-                endTr = self.model.fkine(qMatrix(i,:))
+                endTr = self.model.fkine(qMatrix(i,:));
                 point = endTr(1:3,4);
                 points(:,i) = point;
                 %plot3(point');
