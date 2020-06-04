@@ -8,7 +8,7 @@ classdef Dobot < handle
         cam
         
         % Steps between each movement
-        steps = 100;
+        steps = 30;
         
         % Shape corners
         shapeCorners = [];
@@ -26,6 +26,9 @@ classdef Dobot < handle
         qr = [0, 0, 0, 2*pi, 0];
         qs = [0, 17*pi/36, pi/36, 3*pi/2, 0];
         qn = [0, pi/4, pi/4, 3*pi/2, 0];
+        
+        % transform to end off pencil;
+        toolEnd = transl(0,0,0.055);
     end
     
     methods
@@ -120,7 +123,7 @@ classdef Dobot < handle
             
             % Lift pencil up out of holder
             goal = pencil.pencil.base*transl(0,0,0.07);
-            qMatrix = self.PathToDesiredTransform(goal, self.qn);
+            qMatrix = self.StraightMovementToNewTransform(goal);
             self.AnimateDobotAndPencil(qMatrix, pencil)
             
             % Move dobot to qn with pencil
@@ -203,7 +206,7 @@ classdef Dobot < handle
             
             % Define values
             %   gain of the controler
-            lambda = 1.5;
+            lambda = 2;
             %   depth of the IBVS (height of end effector off table (z=0))
             Tc0 = self.model.fkine(self.model.getpos());
             depth = Tc0(3,4);
@@ -218,11 +221,11 @@ classdef Dobot < handle
                        
             % Camera view and plotting
             if showCamView == true
-                self.cam.clf()
+                self.cam.clf();
                 self.cam.plot(pTarget, '*'); % create the camera view
                 self.cam.hold(true);
                 self.cam.plot(P, 'Tcam', Tc0, 'o'); % create the camera view
-                pause(2)
+                pause(2);
                 self.cam.hold(true);
                 self.cam.plot(P);    % show initial view
             end
@@ -326,14 +329,14 @@ classdef Dobot < handle
                 case 'Square'
                     p1 = centre*transl(distanceFromCentre, distanceFromCentre, 0);
                     p2 = centre*transl(-distanceFromCentre, distanceFromCentre, 0);
-                    p3 = centre*transl(distanceFromCentre, -distanceFromCentre, 0);
-                    p4 = centre*transl(-distanceFromCentre, -distanceFromCentre, 0);
+                    p3 = centre*transl(-distanceFromCentre, -distanceFromCentre, 0);
+                    p4 = centre*transl(distanceFromCentre, -distanceFromCentre, 0);
                     
                     % Extract data from transforms to get X,Y,Z coordinates of corners
                     self.shapeCorners = [p1(1,4), p2(1,4), p3(1,4), p4(1,4);
                                         p1(2,4), p2(2,4), p3(2,4), p4(2,4);
                                         p1(3,4), p2(3,4), p3(3,4), p4(3,4)];
-                                    plot_sphere(self.shapeCorners, 0.01, 'b');
+%                                     plot_sphere(self.shapeCorners, 0.01, 'b');
                     
                 case 'Triangle'
                     p1 = centre*transl(distanceFromCentre, 0, 0);
@@ -344,21 +347,57 @@ classdef Dobot < handle
                     self.shapeCorners = [p1(1,4), p2(1,4), p3(1,4);
                                         p1(2,4), p2(2,4), p3(2,4);
                                         p1(3,4), p2(3,4), p3(3,4)];
-                                    plot_sphere(self.shapeCorners, 0.01, 'b');
+%                                     plot_sphere(self.shapeCorners, 0.01, 'b');
             end 
         end
         
+        %% Draw Shape
+        function DrawShapeOnPaper(self, pencil)
+            for i = 1:size(self.shapeCorners,2)
+                goalTr = transl(self.shapeCorners(:,i))*transl(0,0,0.055);
+                qMatrix = self.StraightMovementToNewTransform(goalTr);
+                if i == 1
+                    self.AnimateDobotAndPencil(qMatrix, pencil);
+                else
+                    self.Draw(qMatrix, pencil);
+                end
+            end
+            goalTr = transl(self.shapeCorners(:,1))*transl(0,0,0.055);
+            qMatrix = self.StraightMovementToNewTransform(goalTr);
+            self.Draw(qMatrix, pencil);
+            
+
+        end
+        
+        %% Return Pencil
+        function ReturnPencil(self, pencil)
+            goalTr = transl(0,-0.25,0.13);
+            qMatrix = self.PathToDesiredTransform(goalTr, self.model.getpos());
+            self.AnimateDobotAndPencil(qMatrix, pencil);
+            
+            goalTr = transl(0,-0.25,0.06);
+            qMatrix = self.StraightMovementToNewTransform(goalTr);
+            self.AnimateDobotAndPencil(qMatrix, pencil);
+            
+            goalTr = transl(0,-0.25,0.13);
+            qMatrix = self.PathToDesiredTransform(goalTr, self.model.getpos());
+            self.model.animate(qMatrix);
+            
+            goalTr = self.model.fkine(self.qn);
+            qMatrix = self.PathToDesiredTransform(goalTr, self.qn);
+            self.model.animate(qMatrix);
+            %pencilBase = transl(0,-0.25,0.06);
+        end
         %% Resolved Motion Rate Control
         % For this project the yaw of the end effector doesn't matter for
         % RMRC        
-        function StraightMovementToNewTransform(self, goalTr)
+        function qMatrix = StraightMovementToNewTransform(self, goalTr)
             % get current joint angles
             q0 = self.model.getpos();
             % get current end effector transform
             startTr = self.model.fkine(q0);
             % get coordinates of start and goal poitns
             xStart = startTr(1:3,4)';
-            %xStart(4) = 0;
             xGoal = goalTr(1:3,4)';
             deltaT = 0.05; %descrete timestep
             
@@ -374,17 +413,16 @@ classdef Dobot < handle
             qMatrix(1,:) = q0(1:5);
             
             for i = 1:self.steps-1
+                % Determine the velocity of joint angles required
                 xdot = [[(x(:,i+1) - x(:,i))/deltaT]; zeros(2,1)];                             % Calculate velocity at discrete time step
-                xdot = self.CalcJointVelocity(xdot)
+                xdot = self.CalcJointVelocity(xdot);
                 J = self.model.jacob0(qMatrix(i,:));            % Get the Jacobian at the current state
-                J = J(1:5,1:5);                           % Take only first 3 rows for 3 joints
-                m = sqrt(det(J*J'))                                                % Measure of Manipulability
+                J = J(1:5,1:5);                           % Take only first 5 rows for 5 joints, The yaw is also excluded
+                m = sqrt(det(J*J'));                                               % Measure of Manipulability
                 if m < 0.001
                     lambda = (1-m/0.001)*5E-2;
-                    %qdot = inv(J'*J + 0.01*eye(5))*J'*xdot;
                 else
                     lambda = 0;
-                    %qdot = inv(J) * xdot;
                 end
                 invJ = inv(J'*J + lambda *eye(5))*J';
                 qdot = inv(J)*xdot;                             % Solve velocitities via RMRC
@@ -392,17 +430,26 @@ classdef Dobot < handle
                 qMatrix(i+1,:) =  qMatrix(i,:) + deltaT*qdot';                   % Update next joint state
             end
             
-            points = [];
-            for i = 1:size(qMatrix,1)
-                self.model.animate(qMatrix(i,:));
-                endTr = self.model.fkine(qMatrix(i,:));
-                point = endTr(1:3,4);
-                points(:,i) = point;
-                %plot3(point');
-            end
-            plot_sphere(points, 0.01, 'b');
+
         end
         
+        %% Draw line
+        function Draw(self, qMatrix, pencil)
+            points = zeros(size(qMatrix,1), 3);
+            startTr = self.model.fkine(qMatrix(1,:))*self.toolEnd;
+            points(1,:) = startTr(1:3,4)';
+            hold on
+            for i = 1:size(qMatrix,1)-1
+                self.model.animate(qMatrix(i,:));
+                endTr = self.model.fkine(qMatrix(i,:));
+                self.AnimateDobotAndPencil(qMatrix(i,:),pencil);
+                endTr = endTr*self.toolEnd;
+                points(i+1,:) = endTr(1:3,4)';
+                pointPlot = [points(i,:) ; points(i+1,:)];
+                plot3(pointPlot(:,1),pointPlot(:,2),pointPlot(:,3),'b')
+            end
+            hold off
+        end
         %% Plot the Ellipsoids around each joint
         function CollisionMode(self)
             % Beginning of sweep
