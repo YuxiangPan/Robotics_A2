@@ -5,7 +5,7 @@ classdef Dobot < handle
         model;
         
         % Camera
-        cam
+        cam;
         
         % Steps between each movement
         steps = 30;
@@ -582,5 +582,67 @@ classdef Dobot < handle
             self.model.animate(qMatrix);
         end
  
+        %% Teach Mode
+        function TeachMode(self, teachType, q1, q2, q3, q5, x, y, z, yaw)
+            switch teachType
+                case 'Joints'
+                    self.TeachJoints(q1, q2, q3, q5);
+                case 'Joystick'
+                    self.TeachJoystick(x,y,z,yaw);
+            end
+        end
+        
+        %% Teach using the joints
+        function TeachJoints(self, q1, q2, q3, q5)
+            q = deg2rad([q1, q2, q3, q5]);
+            q = self.CalcJointAngles(q);
+            self.model.animate(q);
+        end
+        
+        %% Teach using the joystick
+        function TeachJoystick(self, x, y, z, yaw)
+            % controller gains
+            Kv = 0.1;
+            Kw = 0.5;
+            
+            % linear velocities
+            vx = Kv*x;
+            vy = Kv*y;
+            vz = Kv*z;
+            
+            % angular velocities
+            wz = Kw*yaw;
+            
+            % velocity vector
+            v = [vx;vy;vz;wz];
+            
+            % Joint velocity using DLS
+            q = self.model.getpos();
+            lambda = 0.2;
+            J = self.model.jacob0(q);
+            J(:,4) = [];
+            J(4:5,:) = [];
+            invJ = inv((J'*J)+lambda^2*eye(4))*J';
+            qDot = invJ*v;
+            % Time step for sim
+            dt = 0.15;
+            % Find robot joint angles
+            q(4) = [];
+            q = q+qDot'*dt;
+            q = self.CalcJointAngles(q);
+            
+            % Make sure joints aren't past the limits
+            for i = 1:self.model.n
+                if q(i) < self.model.qlim(i,1)
+                    q(i) = self.model.qlim(i,1);
+                end
+                if q(i) > self.model.qlim(i,2)
+                    q(i) = self.model.qlim(i,2);
+                end
+            end
+            
+            % upate joint angles
+            self.model.animate(q);
+        end
     end
 end
