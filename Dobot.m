@@ -115,21 +115,21 @@ classdef Dobot < handle
         end
         
         %% Pick up pencil function
-        function PickPencil(self, pencil)
+        function PickPencil(self, pencil, app)
             % Move to pick up 
             goal = pencil.pencil.base;
             qMatrix = self.PathToDesiredTransform(goal, self.qn);
-            self.model.animate(qMatrix);
+            self.Animate(qMatrix, app);
             
             % Lift pencil up out of holder
             goal = pencil.pencil.base*transl(0,0,0.07);
             qMatrix = self.StraightMovementToNewTransform(goal);
-            self.AnimateDobotAndPencil(qMatrix, pencil)
+            self.AnimateDobotAndPencil(qMatrix, pencil, app)
             
             % Move dobot to qn with pencil
             goal = self.model.fkine(self.qn);
             qMatrix = self.PathToDesiredTransform(goal, self.qn);
-            self.AnimateDobotAndPencil(qMatrix, pencil);
+            self.AnimateDobotAndPencil(qMatrix, pencil, app);
 
         end
         
@@ -181,7 +181,7 @@ classdef Dobot < handle
         end
         
         %% Visual Servoing over paper, based off tutorial 8
-        function CentrePencilOverPaper(self, environment, pencil)
+        function CentrePencilOverPaper(self, environment, pencil, app)
             % Do you want to plot the cameras view?
             showCamView = true; % true = plot, false = don't plot
             
@@ -232,7 +232,11 @@ classdef Dobot < handle
             % Move robot until error is small
             %   Set a high error initially
             e =[-100, -100, -100, -100, -100, -100, -100, -100]';
-            while mean(abs(e)) > 5
+            counter = 0;
+            while mean(abs(e)) > 5 || counter > 1000
+                while app.EMERGENCYSTOPButton.Value == true
+                end
+                counter = counter + 1;
                 % Compute the view of the camera
                 uv = self.cam.project(P);
                 if showCamView == true
@@ -278,7 +282,7 @@ classdef Dobot < handle
                 
                 % Update joints
                 q = q0 + (1/fps)*qp;
-                self.AnimateDobotAndPencil(q',pencil);
+                self.AnimateDobotAndPencil(q',pencil, app);
                 
                 % Get camera location
                 Tc = self.model.fkine(q);
@@ -294,8 +298,10 @@ classdef Dobot < handle
         end
         
         %% Animate moving the dobot and the pencil at the same time. 
-        function AnimateDobotAndPencil(self, qMatrix, pencil)
+        function AnimateDobotAndPencil(self, qMatrix, pencil, app)
             for i=1:size(qMatrix,1)
+                while app.EMERGENCYSTOPButton.Value == true
+                end
                 self.model.animate(qMatrix(i,:));
                 pencil.pencil.base = self.PencilPointingDown(self.model.fkine(qMatrix(i,:)));
                 pencil.pencil.animate(0);
@@ -352,40 +358,40 @@ classdef Dobot < handle
         end
         
         %% Draw Shape
-        function DrawShapeOnPaper(self, pencil)
+        function DrawShapeOnPaper(self, pencil, app)
             for i = 1:size(self.shapeCorners,2)
                 goalTr = transl(self.shapeCorners(:,i))*transl(0,0,0.055);
                 qMatrix = self.StraightMovementToNewTransform(goalTr);
                 if i == 1
-                    self.AnimateDobotAndPencil(qMatrix, pencil);
+                    self.AnimateDobotAndPencil(qMatrix, pencil, app);
                 else
-                    self.Draw(qMatrix, pencil);
+                    self.Draw(qMatrix, pencil, app);
                 end
             end
             goalTr = transl(self.shapeCorners(:,1))*transl(0,0,0.055);
             qMatrix = self.StraightMovementToNewTransform(goalTr);
-            self.Draw(qMatrix, pencil);
+            self.Draw(qMatrix, pencil, app);
             
 
         end
         
         %% Return Pencil
-        function ReturnPencil(self, pencil)
+        function ReturnPencil(self, pencil, app)
             goalTr = transl(0,-0.25,0.13);
             qMatrix = self.PathToDesiredTransform(goalTr, self.model.getpos());
-            self.AnimateDobotAndPencil(qMatrix, pencil);
+            self.AnimateDobotAndPencil(qMatrix, pencil, app);
             
             goalTr = transl(0,-0.25,0.06);
             qMatrix = self.StraightMovementToNewTransform(goalTr);
-            self.AnimateDobotAndPencil(qMatrix, pencil);
+            self.AnimateDobotAndPencil(qMatrix, pencil, app);
             
             goalTr = transl(0,-0.25,0.13);
             qMatrix = self.PathToDesiredTransform(goalTr, self.model.getpos());
-            self.model.animate(qMatrix);
+            self.Animate(qMatrix, app);
             
             goalTr = self.model.fkine(self.qn);
             qMatrix = self.PathToDesiredTransform(goalTr, self.qn);
-            self.model.animate(qMatrix);
+            self.Animate(qMatrix, app);
             %pencilBase = transl(0,-0.25,0.06);
         end
         %% Resolved Motion Rate Control
@@ -434,15 +440,15 @@ classdef Dobot < handle
         end
         
         %% Draw line
-        function Draw(self, qMatrix, pencil)
+        function Draw(self, qMatrix, pencil, app)
             points = zeros(size(qMatrix,1), 3);
             startTr = self.model.fkine(qMatrix(1,:))*self.toolEnd;
             points(1,:) = startTr(1:3,4)';
             hold on
             for i = 1:size(qMatrix,1)-1
-                self.model.animate(qMatrix(i,:));
+                %self.Animate(qMatrix(i,:), app);
                 endTr = self.model.fkine(qMatrix(i,:));
-                self.AnimateDobotAndPencil(qMatrix(i,:),pencil);
+                self.AnimateDobotAndPencil(qMatrix(i,:),pencil, app);
                 endTr = endTr*self.toolEnd;
                 points(i+1,:) = endTr(1:3,4)';
                 pointPlot = [points(i,:) ; points(i+1,:)];
@@ -451,7 +457,7 @@ classdef Dobot < handle
             hold off
         end
         %% Plot the Ellipsoids around each joint
-        function CollisionMode(self)
+        function CollisionMode(self, app)
             % Beginning of sweep
             q0 = deg2rad([-90,85,5,270,0]);
             self.model.animate(q0);
@@ -579,28 +585,28 @@ classdef Dobot < handle
             % recalculate a qMatrix that doesn't collide with block
             trBeforeCollision = self.model.fkine(qBeforeCollision);
             qMatrix = self.PathToDesiredTransform(trBeforeCollision, q0);
-            self.model.animate(qMatrix);
+            self.Animate(qMatrix, app);
         end
  
         %% Teach Mode
-        function TeachMode(self, teachType, q1, q2, q3, q5, x, y, z, yaw)
+        function TeachMode(self, teachType, q1, q2, q3, q5, x, y, z, yaw, app)
             switch teachType
                 case 'Joints'
-                    self.TeachJoints(q1, q2, q3, q5);
+                    self.TeachJoints(q1, q2, q3, q5, app);
                 case 'Joystick'
-                    self.TeachJoystick(x,y,z,yaw);
+                    self.TeachJoystick(x, y, z, yaw, app);
             end
         end
         
         %% Teach using the joints
-        function TeachJoints(self, q1, q2, q3, q5)
+        function TeachJoints(self, q1, q2, q3, q5, app)
             q = deg2rad([q1, q2, q3, q5]);
             q = self.CalcJointAngles(q);
-            self.model.animate(q);
+            self.Animate(q, app);
         end
         
         %% Teach using the joystick
-        function TeachJoystick(self, x, y, z, yaw)
+        function TeachJoystick(self, x, y, z, yaw, app)
             % controller gains
             Kv = 0.1;
             Kw = 0.5;
@@ -642,7 +648,15 @@ classdef Dobot < handle
             end
             
             % upate joint angles
-            self.model.animate(q);
+            self.Animate(q, app);
+        end
+        %% Animate each step seperately to check for estop
+        function Animate(self, qMatrix, app)
+            for i = 1:size(qMatrix,1)
+                while app.EMERGENCYSTOPButton.Value == true
+                end
+                self.model.animate(qMatrix(i,:));
+            end
         end
     end
 end
