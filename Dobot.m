@@ -29,6 +29,10 @@ classdef Dobot < handle
         
         % transform to end off pencil;
         toolEnd = transl(0,0,0.055);
+        
+        % Pencil marks on paper
+        lines = [];
+        lineCounter = 1;
     end
     
     methods
@@ -181,7 +185,7 @@ classdef Dobot < handle
         end
         
         %% Visual Servoing over paper, based off tutorial 8
-        function CentrePencilOverPaper(self, environment, pencil, app)
+        function CentrePencilOverPaper(self, paper, pencil, app)
             % Do you want to plot the cameras view?
             showCamView = true; % true = plot, false = don't plot
             
@@ -190,8 +194,7 @@ classdef Dobot < handle
                        262, 262, 762, 762];
 
             % retreive the corner points of the peice of paper
-            P = environment.paperCorners;
-            %plot_sphere(P, 0.01, 'b');
+            P = paper.paperCorners;
             
             % Det the joint angles of the current position of Dobo
             q0 = self.model.getpos()';
@@ -214,10 +217,6 @@ classdef Dobot < handle
             Tc0 = self.CameraLocationTr(self.model.fkine(self.model.getpos()));
             % Plot camera and points
             self.cam.T = Tc0;
-            % Display points in 3D and the camera
-            %self.cam.plot_camera('Tcam',Tc0, 'label','scale',0.01);
-            % Project points to the image
-            %p = self.cam.plot(P, 'Tcam', Tc0);
                        
             % Camera view and plotting
             if showCamView == true
@@ -323,7 +322,7 @@ classdef Dobot < handle
         
         %% Translate Camera
         function cameraTr = CameraLocationTr(self, endEffector)
-            cameraTr = endEffector*transl(-0.028,0,-0.045);%*rpy2tr(0,0,-pi/2);
+            cameraTr = endEffector*transl(-0.028,0,-0.045);
         end
         
         %% Plan points to draw shape
@@ -342,7 +341,6 @@ classdef Dobot < handle
                     self.shapeCorners = [p1(1,4), p2(1,4), p3(1,4), p4(1,4);
                                         p1(2,4), p2(2,4), p3(2,4), p4(2,4);
                                         p1(3,4), p2(3,4), p3(3,4), p4(3,4)];
-%                                     plot_sphere(self.shapeCorners, 0.01, 'b');
                     
                 case 'Triangle'
                     p1 = centre*transl(distanceFromCentre, 0, 0);
@@ -353,7 +351,6 @@ classdef Dobot < handle
                     self.shapeCorners = [p1(1,4), p2(1,4), p3(1,4);
                                         p1(2,4), p2(2,4), p3(2,4);
                                         p1(3,4), p2(3,4), p3(3,4)];
-%                                     plot_sphere(self.shapeCorners, 0.01, 'b');
             end 
         end
         
@@ -371,8 +368,6 @@ classdef Dobot < handle
             goalTr = transl(self.shapeCorners(:,1))*transl(0,0,0.055);
             qMatrix = self.StraightMovementToNewTransform(goalTr);
             self.Draw(qMatrix, pencil, app);
-            
-
         end
         
         %% Return Pencil
@@ -392,7 +387,6 @@ classdef Dobot < handle
             goalTr = self.model.fkine(self.qn);
             qMatrix = self.PathToDesiredTransform(goalTr, self.qn);
             self.Animate(qMatrix, app);
-            %pencilBase = transl(0,-0.25,0.06);
         end
         %% Resolved Motion Rate Control
         % For this project the yaw of the end effector doesn't matter for
@@ -446,18 +440,18 @@ classdef Dobot < handle
             points(1,:) = startTr(1:3,4)';
             hold on
             for i = 1:size(qMatrix,1)-1
-                %self.Animate(qMatrix(i,:), app);
                 endTr = self.model.fkine(qMatrix(i,:));
                 self.AnimateDobotAndPencil(qMatrix(i,:),pencil, app);
                 endTr = endTr*self.toolEnd;
                 points(i+1,:) = endTr(1:3,4)';
                 pointPlot = [points(i,:) ; points(i+1,:)];
-                plot3(pointPlot(:,1),pointPlot(:,2),pointPlot(:,3),'b')
+                self.lineCounter = self.lineCounter + 1;
+                self.lines(self.lineCounter) = plot3(pointPlot(:,1),pointPlot(:,2),pointPlot(:,3),'b');
             end
             hold off
         end
         %% Plot the Ellipsoids around each joint
-        function CollisionMode(self, app)
+        function CollisionMode(self, cubeY, app)
             % Beginning of sweep
             q0 = deg2rad([-90,85,5,270,0]);
             self.model.animate(q0);
@@ -533,7 +527,7 @@ classdef Dobot < handle
                            cubePoints * rotx(3*pi/2); ...
                            cubePoints * roty(pi/2); ...
                            cubePoints * roty(-pi/2)];
-            centreOfCube = [0.25,0,0.1];
+            centreOfCube = [0.25,cubeY,0.1];
             cubePoints = cubePoints + repmat(centreOfCube,size(cubePoints,1),1);
             hold on
 %             cube_h = plot3(cubePoints(:,1),cubePoints(:,2),cubePoints(:,3),'b.');

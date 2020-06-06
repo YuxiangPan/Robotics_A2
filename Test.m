@@ -9,10 +9,22 @@ dobot.model.animate(q)
 qGoal = [pi/4, pi/4, pi/4, 3*pi/2, 0];
 goalTr = dobot.model.fkine(qGoal);
 
-
-%pause(4);
-dobot.StraightMovementToNewTransform(goalTr);
-
+% qMatrix = dobot.PathToDesiredTransform(goalTr,dobot.qn);
+% points = [];
+% for i = 1:size(qMatrix,1)
+%     dobot.model.animate(qMatrix(i,:));
+%     endTr = dobot.model.fkine(qMatrix(i,:));
+%     point = endTr(1:3,4);
+%     points(:,i) = point;
+%     %plot3(point');
+% end
+% plot_sphere(points, 0.01, 'r');
+pencil = Pencil(transl(0.5,0,0));
+pause(1);
+dobot.model.animate(q);
+qMatrix = dobot.StraightMovementToNewTransform(goalTr);
+% dobot.model.tool = transl(0,0,0.055);
+dobot.Draw(qMatrix, pencil);
 %% Collision
 clear all
 close all
@@ -43,3 +55,12 @@ axis equal
 camlight
 % robot.teach
 % keyboard
+
+%% adf
+a = true;
+while a == true;
+    disp('before change')
+    a = false;
+    pause(1);
+    disp('after change')
+end

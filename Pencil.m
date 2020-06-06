@@ -37,7 +37,7 @@ classdef Pencil < handle
                     error('reloadData = 0 to use preloaded 3D data, or 1 reload 3D data')
             end
 
-            % setup part
+            % Setup part
             self.pencil.faces = {PencilFaceData, []};
             self.pencil.points = {PencilVertexData, []};
             
