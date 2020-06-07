@@ -228,7 +228,7 @@ classdef Dobot < handle
                 self.cam.hold(true);
                 self.cam.plot(P);    % show initial view
             end
-            % Move robot until error is small
+            % Move robot until error is small or not approaching position
             %   Set a high error initially
             e =[-100, -100, -100, -100, -100, -100, -100, -100]';
             counter = 0;
@@ -242,7 +242,7 @@ classdef Dobot < handle
                     self.cam.plot(P);
                 end
                 
-                % Compute image plane error as a column
+                % Compute image plane error
                 e = pTarget-uv;   % feature error
                 e = e(:);
                 
@@ -327,11 +327,14 @@ classdef Dobot < handle
         
         %% Plan points to draw shape
         function points = planCornersOfShape(self, shape, scale)
+            % Calculate centre of shape
             centre = self.model.fkine(self.model.getpos());
             centre(3,4) = 0.005;
+            % Calculate distance from centre
             distanceFromCentre = scale*0.02;
             switch shape
                 case 'Square'
+                    % Transform to create sqaure points
                     p1 = centre*transl(distanceFromCentre, distanceFromCentre, 0);
                     p2 = centre*transl(-distanceFromCentre, distanceFromCentre, 0);
                     p3 = centre*transl(-distanceFromCentre, -distanceFromCentre, 0);
@@ -343,6 +346,7 @@ classdef Dobot < handle
                                         p1(3,4), p2(3,4), p3(3,4), p4(3,4)];
                     
                 case 'Triangle'
+                    % Transform to create triangle points
                     p1 = centre*transl(distanceFromCentre, 0, 0);
                     p2 = centre*transl(-distanceFromCentre*sin(pi/6), distanceFromCentre*cos(pi/6), 0);
                     p3 = centre*transl(-distanceFromCentre*sin(pi/6), -distanceFromCentre*cos(pi/6), 0);
@@ -356,15 +360,19 @@ classdef Dobot < handle
         
         %% Draw Shape
         function DrawShapeOnPaper(self, pencil, app)
+            % loop through each point on the shape and draw line between
+            % them
             for i = 1:size(self.shapeCorners,2)
                 goalTr = transl(self.shapeCorners(:,i))*transl(0,0,0.055);
                 qMatrix = self.StraightMovementToNewTransform(goalTr);
                 if i == 1
+                    % don't draw a line on first movement
                     self.AnimateDobotAndPencil(qMatrix, pencil, app);
                 else
                     self.Draw(qMatrix, pencil, app);
                 end
             end
+            % connect shape
             goalTr = transl(self.shapeCorners(:,1))*transl(0,0,0.055);
             qMatrix = self.StraightMovementToNewTransform(goalTr);
             self.Draw(qMatrix, pencil, app);
@@ -372,18 +380,22 @@ classdef Dobot < handle
         
         %% Return Pencil
         function ReturnPencil(self, pencil, app)
+            % Move to just above pencil holder
             goalTr = transl(0,-0.25,0.13);
             qMatrix = self.PathToDesiredTransform(goalTr, self.model.getpos());
             self.AnimateDobotAndPencil(qMatrix, pencil, app);
             
+            % Place pencil
             goalTr = transl(0,-0.25,0.06);
             qMatrix = self.StraightMovementToNewTransform(goalTr);
             self.AnimateDobotAndPencil(qMatrix, pencil, app);
             
+            % Move to just above pencil
             goalTr = transl(0,-0.25,0.13);
             qMatrix = self.PathToDesiredTransform(goalTr, self.model.getpos());
             self.Animate(qMatrix, app);
             
+            % Return to start position
             goalTr = self.model.fkine(self.qn);
             qMatrix = self.PathToDesiredTransform(goalTr, self.qn);
             self.Animate(qMatrix, app);
@@ -436,6 +448,7 @@ classdef Dobot < handle
         %% Draw line
         function Draw(self, qMatrix, pencil, app)
             points = zeros(size(qMatrix,1), 3);
+            % End of pencil tip Tr
             startTr = self.model.fkine(qMatrix(1,:))*self.toolEnd;
             points(1,:) = startTr(1:3,4)';
             hold on
@@ -443,6 +456,7 @@ classdef Dobot < handle
                 endTr = self.model.fkine(qMatrix(i,:));
                 self.AnimateDobotAndPencil(qMatrix(i,:),pencil, app);
                 endTr = endTr*self.toolEnd;
+                % Plot the line as it draws
                 points(i+1,:) = endTr(1:3,4)';
                 pointPlot = [points(i,:) ; points(i+1,:)];
                 self.lineCounter = self.lineCounter + 1;
