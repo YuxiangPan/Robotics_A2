@@ -53,12 +53,9 @@ classdef Environment < handle
                         load('environment/environmentWithoutPerspexDataPreloaded.mat');
                     end
                     
-                    
                 case 1
                     [tableFaceData, tableVertexData, tablePlyData] = plyread('environment/table.ply','tri');
-
                     [pencilHolderFaceData, pencilHolderVertexData, pencilHolderPlyData] = plyread('environment/pencilHolder.ply','tri');
-                    %[paperFaceData, paperVertexData, paperPlyData] = plyread('environment/paper.ply','tri');
                     [eStopFaceData, eStopVertexData, eStopPlyData] = plyread('environment/eStop.ply','tri');
                     if perspexOn == true
                         [frameFaceData, frameVertexData, framePlyData] = plyread('environment/frameWithPerspex.ply','tri');
@@ -80,9 +77,6 @@ classdef Environment < handle
             self.pencilHolder.faces = {pencilHolderFaceData, []};
             self.pencilHolder.points = {pencilHolderVertexData, []};
             
-%             self.paper.faces = {paperFaceData, []};
-%             self.paper.points = {paperVertexData, []};
-            
             self.eStop.faces = {eStopFaceData, []};
             self.eStop.points = {eStopVertexData, []};
             
@@ -90,7 +84,6 @@ classdef Environment < handle
             plot3d(self.table, 0,'workspace',self.workspace,'view',[-30,30],'delay',0);
             plot3d(self.frame, 0,'workspace',self.workspace,'view',[-30,30],'delay',0);
             plot3d(self.pencilHolder, 0,'workspace',self.workspace,'view',[-30,30],'delay',0);
-%             plot3d(self.paper, 0,'workspace',self.workspace,'view',[-30,30],'delay',0);
             plot3d(self.eStop, 0,'workspace',self.workspace,'view',[-30,30],'delay',0);
             axis equal;
             
@@ -107,9 +100,6 @@ classdef Environment < handle
             
             handles = findobj('Tag', self.pencilHolder.name);
             h_pencilHolder = get(handles, 'UserData');
-             
-%             handles = findobj('Tag', self.paper.name);
-%             h_paper = get(handles, 'UserData');
             
             handles = findobj('Tag', self.eStop.name);
             h_eStop = get(handles, 'UserData');
@@ -128,11 +118,6 @@ classdef Environment < handle
                     ,pencilHolderPlyData.vertex.green ...
                     ,pencilHolderPlyData.vertex.blue]/255;
                 h_pencilHolder.link(1).Children.FaceColor = 'interp';
-                
-%                 h_paper.link(1).Children.FaceVertexCData = [paperPlyData.vertex.red ...
-%                     ,paperPlyData.vertex.green ...
-%                     ,paperPlyData.vertex.blue]/255;
-%                 h_paper.link(1).Children.FaceColor = 'interp';
                 
                 h_eStop.link(1).Children.FaceVertexCData = [eStopPlyData.vertex.red ...
                     ,eStopPlyData.vertex.green ...

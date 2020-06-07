@@ -30,7 +30,7 @@ classdef Dobot < handle
         % transform to end off pencil;
         toolEnd = transl(0,0,0.055);
         
-        % Pencil marks on paper
+        % Pencil marks on paper handle
         lines = [];
         lineCounter = 1;
     end
@@ -120,15 +120,20 @@ classdef Dobot < handle
         
         %% Pick up pencil function
         function PickPencil(self, pencil, app)
+            % Move just above pencil
+            goal = pencil.pencil.base*transl(0,0,0.07);
+            qMatrix = self.PathToDesiredTransform(goal, self.qn);
+            self.Animate(qMatrix, app);
+            
             % Move to pick up 
             goal = pencil.pencil.base;
-            qMatrix = self.PathToDesiredTransform(goal, self.qn);
+            qMatrix = self.StraightMovementToNewTransform(goal);
             self.Animate(qMatrix, app);
             
             % Lift pencil up out of holder
             goal = pencil.pencil.base*transl(0,0,0.07);
             qMatrix = self.StraightMovementToNewTransform(goal);
-            self.AnimateDobotAndPencil(qMatrix, pencil, app)
+            self.AnimateDobotAndPencil(qMatrix, pencil, app);
             
             % Move dobot to qn with pencil
             goal = self.model.fkine(self.qn);
@@ -226,7 +231,7 @@ classdef Dobot < handle
                 self.cam.plot(P, 'Tcam', Tc0, 'o'); % create the camera view
                 pause(2);
                 self.cam.hold(true);
-                self.cam.plot(P);    % show initial view
+                h = self.cam.plot(P);    % show initial view
             end
             % Move robot until error is small or not approaching position
             %   Set a high error initially
@@ -426,23 +431,14 @@ classdef Dobot < handle
             
             for i = 1:self.steps-1
                 % Determine the velocity of joint angles required
-                xdot = [[(x(:,i+1) - x(:,i))/deltaT]; zeros(2,1)];                             % Calculate velocity at discrete time step
+                xdot = [[(x(:,i+1) - x(:,i))/deltaT]; zeros(2,1)];         % Calculate velocity at discrete time step
                 xdot = self.CalcJointVelocity(xdot);
-                J = self.model.jacob0(qMatrix(i,:));            % Get the Jacobian at the current state
-                J = J(1:5,1:5);                           % Take only first 5 rows for 5 joints, The yaw is also excluded
-                m = sqrt(det(J*J'));                                               % Measure of Manipulability
-                if m < 0.001
-                    lambda = (1-m/0.001)*5E-2;
-                else
-                    lambda = 0;
-                end
-                invJ = inv(J'*J + lambda *eye(5))*J';
-                qdot = inv(J)*xdot;                             % Solve velocitities via RMRC
+                J = self.model.jacob0(qMatrix(i,:));                       % Get the Jacobian at the current state
+                J = J(1:5,1:5);                                            % Take only first 5 rows for 5 joints, The yaw is also excluded
+                qdot = inv(J)*xdot;                                        % Solve velocitities via RMRC
                 qdot(5) = 0;
-                qMatrix(i+1,:) =  qMatrix(i,:) + deltaT*qdot';                   % Update next joint state
+                qMatrix(i+1,:) =  qMatrix(i,:) + deltaT*qdot';             % Update next joint state
             end
-            
-
         end
         
         %% Draw line
